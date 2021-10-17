@@ -14,19 +14,6 @@ export interface HttpErrorInit extends ErrorInit {
   expose?: boolean;
 }
 
-function errorNameForStatus(status: number): string {
-  let name: string;
-  if (STATUS_TEXT.has(status)) {
-    name = status === Status.Teapot
-      ? "Teapot"
-      : STATUS_TEXT.get(status)!.replace(/\W/g, "");
-    if (status !== Status.InternalServerError) name += "Error";
-  } else {
-    name = `Unknown${status < 500 ? "Client" : "Server"}Error`;
-  }
-  return name;
-}
-
 /**
  * Converts HttpError arguments to an options object.
  * Prioritizing status and message arguments over status and message options.
@@ -60,7 +47,20 @@ export function optionsFromArgs<Init extends HttpErrorInit = HttpErrorInit>(
     message = init?.message;
   }
 
-  return { ...init, status, message };
+  return { ...init, status, message } as Init;
+}
+
+function errorNameForStatus(status: number): string {
+  let name: string;
+  if (STATUS_TEXT.has(status)) {
+    name = status === Status.Teapot
+      ? "Teapot"
+      : STATUS_TEXT.get(status)!.replace(/\W/g, "");
+    if (status !== Status.InternalServerError) name += "Error";
+  } else {
+    name = `Unknown${status < 500 ? "Client" : "Server"}Error`;
+  }
+  return name;
 }
 
 /** An error for an HTTP request. */
