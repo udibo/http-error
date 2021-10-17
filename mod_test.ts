@@ -305,7 +305,10 @@ test("isHttpError", () => {
   assertEquals(isHttpError(new OtherHttpError(400, "failed")), true);
 });
 
+const optionsFromArgsTests = new TestSuite({ name: "optionsFromArgs" });
+
 test(
+  optionsFromArgsTests,
   "prefer status/message args over status/messagee options",
   () => {
     const messages = ["something went wrong", "failed"];
@@ -338,5 +341,36 @@ test(
       messages[0],
     );
     assertPreferArgs(optionsFromArgs(options), statuses[1], messages[1]);
+  },
+);
+
+test(
+  optionsFromArgsTests,
+  "supports extended options",
+  () => {
+    const status = 400;
+    const message = "something went wrong";
+    const options = { code: "invalid_request", uri: "https://example.com" };
+    interface ExtendedErrorInit extends HttpErrorInit {
+      code?: string;
+      uri?: string;
+    }
+    const expectedOptions: ExtendedErrorInit = { status, message, ...options };
+    function assertExtendedInit(options: ExtendedErrorInit): void {
+      assertEquals(options, expectedOptions);
+    }
+
+    assertExtendedInit(
+      optionsFromArgs<ExtendedErrorInit>(status, message, options),
+    );
+    assertExtendedInit(
+      optionsFromArgs<ExtendedErrorInit>(status, { message, ...options }),
+    );
+    assertExtendedInit(
+      optionsFromArgs<ExtendedErrorInit>(message, { status, ...options }),
+    );
+    assertExtendedInit(
+      optionsFromArgs<ExtendedErrorInit>({ status, message, ...options }),
+    );
   },
 );

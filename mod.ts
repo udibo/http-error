@@ -31,14 +31,14 @@ function errorNameForStatus(status: number): string {
  * Converts HttpError arguments to an options object.
  * Prioritizing status and message arguments over status and message options.
  */
-export function optionsFromArgs(
-  statusOrMessageOrOptions?: number | string | HttpErrorInit,
-  messageOrOptions?: string | HttpErrorInit,
-  options?: HttpErrorInit,
-): HttpErrorInit {
+export function optionsFromArgs<Init extends HttpErrorInit = HttpErrorInit>(
+  statusOrMessageOrOptions?: number | string | Init,
+  messageOrOptions?: string | Init,
+  options?: Init,
+): Init {
   let status: number | undefined = undefined;
   let message: string | undefined = undefined;
-  let init: HttpErrorInit | undefined = options;
+  let init: Init | undefined = options;
 
   if (typeof statusOrMessageOrOptions === "number") {
     status = statusOrMessageOrOptions;
@@ -50,7 +50,7 @@ export function optionsFromArgs(
     }
   } else if (typeof statusOrMessageOrOptions === "string") {
     message = statusOrMessageOrOptions;
-    init = messageOrOptions as (HttpErrorInit | undefined);
+    init = messageOrOptions as (Init | undefined);
     status = init?.status ?? status;
   } else if (typeof messageOrOptions === "string") {
     message = messageOrOptions;
