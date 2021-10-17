@@ -292,6 +292,17 @@ test("isHttpError", () => {
     }
   }
   assertEquals(isHttpError(new OtherError("failed")), false);
+  class OtherHttpError extends Error {
+    status: number;
+    expose: boolean;
+
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+      this.expose = status < 500;
+    }
+  }
+  assertEquals(isHttpError(new OtherHttpError(400, "failed")), true);
 });
 
 test(

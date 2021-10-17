@@ -1,7 +1,7 @@
 # Http Error
 
-[![version](https://img.shields.io/badge/release-0.1.0-success)](https://deno.land/x/http_error@0.1.0)
-[![deno doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/http_error@0.1.0/mod.ts)
+[![version](https://img.shields.io/badge/release-0.1.1-success)](https://deno.land/x/http_error@0.1.1)
+[![deno doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/http_error@0.1.1/mod.ts)
 [![CI](https://github.com/udibo/http_error/workflows/CI/badge.svg)](https://github.com/udibo/http_error/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/udibo/http_error/branch/main/graph/badge.svg?token=8Q7TSUFWUY)](https://codecov.io/gh/udibo/http_error)
 [![license](https://img.shields.io/github/license/udibo/http_error)](https://github.com/udibo/http_error/blob/master/LICENSE)
@@ -10,6 +10,10 @@ An error class for HTTP requests.
 
 This module was inspired by
 [http-errors](https://www.npmjs.com/package/http-errors) for Node.js.
+
+## Features
+
+- Framework agnostic
 
 ## Installation
 
@@ -26,9 +30,9 @@ imported directly from GitHub using raw content URLs.
 
 ```ts
 // Import from Deno's third party module registry
-import { HttpError, isHttpError } from "https://deno.land/x/http_error@0.1.0/mod.ts";
+import { HttpError, isHttpError } from "https://deno.land/x/http_error@0.1.1/mod.ts";
 // Import from GitHub
-import { HttpError, isHttpError } "https://raw.githubusercontent.com/udibo/http_error/0.1.0/mod.ts";
+import { HttpError, isHttpError } "https://raw.githubusercontent.com/udibo/http_error/0.1.1/mod.ts";
 ```
 
 ### Node.js
@@ -39,7 +43,7 @@ If a Node.js package has the type "module" specified in its package.json file,
 the JavaScript bundle can be imported as a `.js` file.
 
 ```js
-import { HttpError, isHttpError } from "./http_error_0.1.0.js";
+import { HttpError, isHttpError } from "./http_error_0.1.1.js";
 ```
 
 The default type for Node.js packages is "commonjs". To import the bundle into a
@@ -47,7 +51,7 @@ commonjs package, the file extension of the JavaScript bundle must be changed
 from `.js` to `.mjs`.
 
 ```js
-import { HttpError, isHttpError } from "./http_error_0.1.0.mjs";
+import { HttpError, isHttpError } from "./http_error_0.1.1.mjs";
 ```
 
 See [Node.js Documentation](https://nodejs.org/api/esm.html) for more
@@ -66,7 +70,7 @@ modules must have the type attribute set to "module".
 
 ```js
 // main.js
-import { HttpError, isHttpError } from "./http_error_0.1.0.js";
+import { HttpError, isHttpError } from "./http_error_0.1.1.js";
 ```
 
 You can also embed a module script directly into an HTML file by placing the
@@ -74,7 +78,7 @@ JavaScript code within the body of the script tag.
 
 ```html
 <script type="module">
-  import { HttpError, isHttpError } from "./http_error_0.1.0.js";
+  import { HttpError, isHttpError } from "./http_error_0.1.1.js";
 </script>
 ```
 
@@ -166,7 +170,9 @@ class CustomError extends HttpError {
 
 ### isHttpError
 
-This function can be used to determine if a value is an HttpError object.
+This function can be used to determine if a value is an HttpError object. It
+will also return true for Error objects that have status and expose properties
+with matching types.
 
 ```ts
 let error = new Error("file not found");
