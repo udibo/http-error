@@ -1,7 +1,7 @@
 # Http Error
 
-[![version](https://img.shields.io/badge/release-0.1.2-success)](https://deno.land/x/http_error@0.1.2)
-[![deno doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/http_error@0.1.2/mod.ts)
+[![version](https://img.shields.io/badge/release-0.1.3-success)](https://deno.land/x/http_error@0.1.3)
+[![deno doc](https://doc.deno.land/badge.svg)](https://doc.deno.land/https/deno.land/x/http_error@0.1.3/mod.ts)
 [![CI](https://github.com/udibo/http_error/workflows/CI/badge.svg)](https://github.com/udibo/http_error/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/udibo/http_error/branch/main/graph/badge.svg?token=8Q7TSUFWUY)](https://codecov.io/gh/udibo/http_error)
 [![license](https://img.shields.io/github/license/udibo/http_error)](https://github.com/udibo/http_error/blob/master/LICENSE)
@@ -30,9 +30,9 @@ imported directly from GitHub using raw content URLs.
 
 ```ts
 // Import from Deno's third party module registry
-import { HttpError, isHttpError } from "https://deno.land/x/http_error@0.1.2/mod.ts";
+import { HttpError, isHttpError } from "https://deno.land/x/http_error@0.1.3/mod.ts";
 // Import from GitHub
-import { HttpError, isHttpError } "https://raw.githubusercontent.com/udibo/http_error/0.1.2/mod.ts";
+import { HttpError, isHttpError } "https://raw.githubusercontent.com/udibo/http_error/0.1.3/mod.ts";
 ```
 
 ### Node.js
@@ -43,7 +43,7 @@ If a Node.js package has the type "module" specified in its package.json file,
 the JavaScript bundle can be imported as a `.js` file.
 
 ```js
-import { HttpError, isHttpError } from "./http_error_0.1.2.js";
+import { HttpError, isHttpError } from "./http_error_0.1.3.js";
 ```
 
 The default type for Node.js packages is "commonjs". To import the bundle into a
@@ -51,7 +51,7 @@ commonjs package, the file extension of the JavaScript bundle must be changed
 from `.js` to `.mjs`.
 
 ```js
-import { HttpError, isHttpError } from "./http_error_0.1.2.mjs";
+import { HttpError, isHttpError } from "./http_error_0.1.3.mjs";
 ```
 
 See [Node.js Documentation](https://nodejs.org/api/esm.html) for more
@@ -70,7 +70,7 @@ modules must have the type attribute set to "module".
 
 ```js
 // main.js
-import { HttpError, isHttpError } from "./http_error_0.1.2.js";
+import { HttpError, isHttpError } from "./http_error_0.1.3.js";
 ```
 
 You can also embed a module script directly into an HTML file by placing the
@@ -78,7 +78,7 @@ JavaScript code within the body of the script tag.
 
 ```html
 <script type="module">
-  import { HttpError, isHttpError } from "./http_error_0.1.2.js";
+  import { HttpError, isHttpError } from "./http_error_0.1.3.js";
 </script>
 ```
 
@@ -132,7 +132,7 @@ name in the options.
 class CustomError extends HttpError {
   constructor(
     message?: string,
-    options?: HttpErrorInit,
+    options?: HttpErrorOptions,
   ) {
     super(message, { name: "CustomError", status: 420, ...options });
   }
@@ -148,15 +148,15 @@ class CustomError extends HttpError {
   constructor(
     status?: number,
     message?: string,
-    options?: HttpErrorInit,
+    options?: HttpErrorOptions,
   );
-  constructor(status?: number, options?: HttpErrorInit);
-  constructor(message?: string, options?: HttpErrorInit);
-  constructor(options?: HttpErrorInit);
+  constructor(status?: number, options?: HttpErrorOptions);
+  constructor(message?: string, options?: HttpErrorOptions);
+  constructor(options?: HttpErrorOptions);
   constructor(
-    statusOrMessageOrOptions?: number | string | HttpErrorInit,
-    messageOrOptions?: string | HttpErrorInit,
-    options?: HttpErrorInit,
+    statusOrMessageOrOptions?: number | string | HttpErrorOptions,
+    messageOrOptions?: string | HttpErrorOptions,
+    options?: HttpErrorOptions,
   ) {
     const init = optionsFromArgs(
       statusOrMessageOrOptions,
