@@ -1,15 +1,15 @@
 import { Status } from "./deps.ts";
 import {
   HttpError,
-  HttpErrorInit,
+  HttpErrorOptions,
   isHttpError,
   optionsFromArgs,
 } from "./mod.ts";
-import { assertEquals, assertThrows, test, TestSuite } from "./test_deps.ts";
+import { assertEquals, assertThrows, describe, it } from "./test_deps.ts";
 
-const httpErrorTests = new TestSuite({ name: "HttpError" });
+const httpErrorTests = describe("HttpError");
 
-test(httpErrorTests, "without args", () => {
+it(httpErrorTests, "without args", () => {
   const error = new HttpError();
   assertEquals(error.toString(), "InternalServerError");
   assertEquals(error.name, "InternalServerError");
@@ -19,7 +19,7 @@ test(httpErrorTests, "without args", () => {
   assertEquals(error.cause, undefined);
 });
 
-test(httpErrorTests, "with status", () => {
+it(httpErrorTests, "with status", () => {
   function assertWithStatus(error: HttpError): void {
     assertEquals(error.status, 400);
     assertEquals(error.expose, true);
@@ -29,7 +29,7 @@ test(httpErrorTests, "with status", () => {
   assertWithStatus(new HttpError(undefined, { status: 400 }));
 });
 
-test(httpErrorTests, "with message", () => {
+it(httpErrorTests, "with message", () => {
   function assertWithMessage(error: HttpError): void {
     assertEquals(error.toString(), "InternalServerError: something went wrong");
     assertEquals(error.message, "something went wrong");
@@ -42,7 +42,7 @@ test(httpErrorTests, "with message", () => {
   );
 });
 
-test(
+it(
   httpErrorTests,
   "prefer status/message args over status/messagee options",
   () => {
@@ -82,7 +82,7 @@ test(
   },
 );
 
-test(httpErrorTests, "with cause", () => {
+it(httpErrorTests, "with cause", () => {
   const cause = new Error("fail");
   function assertWithCause(error: HttpError): void {
     assertEquals(error.cause, cause);
@@ -92,7 +92,7 @@ test(httpErrorTests, "with cause", () => {
   assertWithCause(new HttpError(undefined, undefined, { cause }));
 });
 
-test(httpErrorTests, "invalid status", () => {
+it(httpErrorTests, "invalid status", () => {
   assertThrows(
     () => new HttpError(-500),
     RangeError,
@@ -183,14 +183,14 @@ function assertName(
   );
 }
 
-test(httpErrorTests, "default name", () => {
+it(httpErrorTests, "default name", () => {
   const message = "something went wrong";
   for (let status = 400; status < 600; status++) {
     assertName(new HttpError(status, message), status, message);
   }
 });
 
-test(httpErrorTests, "override name", () => {
+it(httpErrorTests, "override name", () => {
   const message = "something went wrong";
   for (let status = 400; status < 600; status++) {
     assertName(
@@ -219,20 +219,20 @@ function assertExpose(
   );
 }
 
-test(httpErrorTests, "default expose", () => {
+it(httpErrorTests, "default expose", () => {
   for (let status = 400; status < 600; status++) {
     assertExpose(new HttpError(status), status);
   }
 });
 
-test(httpErrorTests, "override expose", () => {
+it(httpErrorTests, "override expose", () => {
   for (let status = 400; status < 600; status++) {
     const expose = status >= 500;
     assertExpose(new HttpError(status, { expose }), status, expose);
   }
 });
 
-test(httpErrorTests, "with all options", () => {
+it(httpErrorTests, "with all options", () => {
   const cause = new Error("fail");
   function assertAllOptions(error: HttpError) {
     assertEquals(error.toString(), "CustomError: something went wrong");
@@ -276,7 +276,7 @@ test(httpErrorTests, "with all options", () => {
   );
 });
 
-test("isHttpError", () => {
+it("isHttpError", () => {
   assertEquals(isHttpError(new Error()), false);
   assertEquals(isHttpError(new HttpError()), true);
   assertEquals(isHttpError(new HttpError(400, "something went wrong")), true);
@@ -305,9 +305,9 @@ test("isHttpError", () => {
   assertEquals(isHttpError(new OtherHttpError(400, "failed")), true);
 });
 
-const optionsFromArgsTests = new TestSuite({ name: "optionsFromArgs" });
+const optionsFromArgsTests = describe("optionsFromArgs");
 
-test(
+it(
   optionsFromArgsTests,
   "prefer status/message args over status/messagee options",
   () => {
@@ -316,7 +316,7 @@ test(
     const options = { message: messages[1], status: statuses[1] };
 
     function assertPreferArgs(
-      options: HttpErrorInit,
+      options: HttpErrorOptions,
       expectedStatus: number,
       expectedMessage: string,
     ): void {
@@ -344,33 +344,37 @@ test(
   },
 );
 
-test(
+it(
   optionsFromArgsTests,
   "supports extended options",
   () => {
     const status = 400;
     const message = "something went wrong";
     const options = { code: "invalid_request", uri: "https://example.com" };
-    interface ExtendedErrorInit extends HttpErrorInit {
+    interface ExtendedErrorOptions extends HttpErrorOptions {
       code?: string;
       uri?: string;
     }
-    const expectedOptions: ExtendedErrorInit = { status, message, ...options };
-    function assertExtendedInit(options: ExtendedErrorInit): void {
+    const expectedOptions: ExtendedErrorOptions = {
+      status,
+      message,
+      ...options,
+    };
+    function assertExtendedInit(options: ExtendedErrorOptions): void {
       assertEquals(options, expectedOptions);
     }
 
     assertExtendedInit(
-      optionsFromArgs<ExtendedErrorInit>(status, message, options),
+      optionsFromArgs<ExtendedErrorOptions>(status, message, options),
     );
     assertExtendedInit(
-      optionsFromArgs<ExtendedErrorInit>(status, { message, ...options }),
+      optionsFromArgs<ExtendedErrorOptions>(status, { message, ...options }),
     );
     assertExtendedInit(
-      optionsFromArgs<ExtendedErrorInit>(message, { status, ...options }),
+      optionsFromArgs<ExtendedErrorOptions>(message, { status, ...options }),
     );
     assertExtendedInit(
-      optionsFromArgs<ExtendedErrorInit>({ status, message, ...options }),
+      optionsFromArgs<ExtendedErrorOptions>({ status, message, ...options }),
     );
   },
 );

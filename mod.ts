@@ -1,7 +1,7 @@
 import { Status, STATUS_TEXT } from "./deps.ts";
 
 /** Options for initializing an HttpError. */
-export interface HttpErrorInit extends ErrorInit {
+export interface HttpErrorOptions extends ErrorOptions {
   /** The name of the error. Default based on error status. */
   name?: string;
   message?: string;
@@ -18,7 +18,9 @@ export interface HttpErrorInit extends ErrorInit {
  * Converts HttpError arguments to an options object.
  * Prioritizing status and message arguments over status and message options.
  */
-export function optionsFromArgs<Init extends HttpErrorInit = HttpErrorInit>(
+export function optionsFromArgs<
+  Init extends HttpErrorOptions = HttpErrorOptions,
+>(
   statusOrMessageOrOptions?: number | string | Init,
   messageOrOptions?: string | Init,
   options?: Init,
@@ -79,15 +81,15 @@ export class HttpError extends Error {
   constructor(
     status?: number,
     message?: string,
-    options?: HttpErrorInit,
+    options?: HttpErrorOptions,
   );
-  constructor(status?: number, options?: HttpErrorInit);
-  constructor(message?: string, options?: HttpErrorInit);
-  constructor(options?: HttpErrorInit);
+  constructor(status?: number, options?: HttpErrorOptions);
+  constructor(message?: string, options?: HttpErrorOptions);
+  constructor(options?: HttpErrorOptions);
   constructor(
-    statusOrMessageOrOptions?: number | string | HttpErrorInit,
-    messageOrOptions?: string | HttpErrorInit,
-    options?: HttpErrorInit,
+    statusOrMessageOrOptions?: number | string | HttpErrorOptions,
+    messageOrOptions?: string | HttpErrorOptions,
+    options?: HttpErrorOptions,
   ) {
     const init = optionsFromArgs(
       statusOrMessageOrOptions,
