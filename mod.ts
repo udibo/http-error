@@ -12,6 +12,10 @@ export interface HttpErrorOptions extends ErrorOptions {
    * Defaults to true for client error statuses and false for server error statuses.
    */
   expose?: boolean;
+  /**
+   * Other data associated with the error.
+   */
+  [key: string]: unknown;
 }
 
 /**
