@@ -5,7 +5,13 @@ import {
   isHttpError,
   optionsFromArgs,
 } from "./mod.ts";
-import { assertEquals, assertThrows, describe, it } from "./test_deps.ts";
+import {
+  assertEquals,
+  assertStrictEquals,
+  assertThrows,
+  describe,
+  it,
+} from "./test_deps.ts";
 
 const httpErrorTests = describe("HttpError");
 
@@ -119,7 +125,7 @@ const DEFAULT_ERROR_NAMES = new Map<Status, string>(([
   [Status.NotFound, "NotFound"],
   [Status.MethodNotAllowed, "MethodNotAllowed"],
   [Status.NotAcceptable, "NotAcceptable"],
-  [Status.ProxyAuthRequired, "ProxyAuthenticationRequired"],
+  [Status.ProxyAuthRequired, "ProxyAuthRequired"],
   [Status.RequestTimeout, "RequestTimeout"],
   [Status.Conflict, "Conflict"],
   [Status.Gone, "Gone"],
@@ -274,6 +280,153 @@ it(httpErrorTests, "with all options", () => {
       cause,
     }),
   );
+});
+
+it(httpErrorTests, "with other data", () => {
+  const cause = new Error("fail");
+  const data = { x: 2, y: 3 };
+  function assertAllOptions(error: HttpError) {
+    assertEquals(error.toString(), "CustomError: something went wrong");
+    assertEquals(error.name, "CustomError");
+    assertEquals(error.message, "something went wrong");
+    assertEquals(error.status, 400);
+    assertEquals(error.expose, false);
+    assertEquals(error.cause, cause);
+    assertEquals(error.data, data);
+  }
+  assertAllOptions(
+    new HttpError(400, "something went wrong", {
+      name: "CustomError",
+      expose: false,
+      cause,
+      ...data,
+    }),
+  );
+  assertAllOptions(
+    new HttpError(400, {
+      name: "CustomError",
+      message: "something went wrong",
+      expose: false,
+      cause,
+      ...data,
+    }),
+  );
+  assertAllOptions(
+    new HttpError("something went wrong", {
+      name: "CustomError",
+      status: 400,
+      expose: false,
+      cause,
+      ...data,
+    }),
+  );
+  assertAllOptions(
+    new HttpError({
+      name: "CustomError",
+      message: "something went wrong",
+      status: 400,
+      expose: false,
+      cause,
+      ...data,
+    }),
+  );
+});
+
+it(httpErrorTests, "json", () => {
+  const cause = new Error("fail");
+  const data = { x: 2, y: 3 };
+  assertEquals(
+    HttpError.json(
+      new HttpError<typeof data>(400, "something went wrong", {
+        name: "CustomError",
+        cause,
+        ...data,
+      }),
+    ),
+    {
+      name: "CustomError",
+      message: "something went wrong",
+      status: 400,
+      ...data,
+    },
+  );
+  assertEquals(
+    HttpError.json(
+      new HttpError<typeof data>(500, "something went wrong", {
+        name: "CustomError",
+        cause,
+        ...data,
+      }),
+    ),
+    {
+      name: "CustomError",
+      status: 500,
+      ...data,
+    },
+  );
+  assertEquals(
+    HttpError.json(
+      new HttpError<typeof data>(400, "something went wrong", {
+        name: "CustomError",
+        expose: false,
+        cause,
+        ...data,
+      }),
+    ),
+    {
+      name: "CustomError",
+      status: 400,
+      ...data,
+    },
+  );
+});
+
+const fromTests = describe(httpErrorTests, "from");
+
+it(fromTests, "with all options", () => {
+  const cause = new Error("fail");
+  const error = HttpError.from({
+    name: "CustomError",
+    message: "something went wrong",
+    status: 400,
+    expose: false,
+    cause,
+  });
+  assertEquals(error.toString(), "CustomError: something went wrong");
+  assertEquals(error.name, "CustomError");
+  assertEquals(error.message, "something went wrong");
+  assertEquals(error.status, 400);
+  assertEquals(error.expose, false);
+  assertEquals(error.cause, cause);
+});
+
+it(fromTests, "with data", () => {
+  const cause = new Error("fail");
+  const error = HttpError.from({
+    name: "CustomError",
+    message: "something went wrong",
+    cause,
+    data: { x: 2, y: 3 },
+  });
+  assertEquals(error.toString(), "CustomError: something went wrong");
+  assertEquals(error.name, "CustomError");
+  assertEquals(error.message, "something went wrong");
+  assertEquals(error.status, 500);
+  assertEquals(error.expose, false);
+  assertEquals(error.cause, cause);
+});
+
+it(fromTests, "passthrough HttpError instances", () => {
+  const cause = new Error("fail");
+  const originalError = new HttpError({
+    name: "CustomError",
+    message: "something went wrong",
+    cause,
+    x: 2,
+    y: 3,
+  });
+  const error = HttpError.from(originalError);
+  assertStrictEquals(error, originalError);
 });
 
 it("isHttpError", () => {

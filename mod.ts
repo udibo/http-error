@@ -54,10 +54,10 @@ export function optionsFromArgs<
 
 function errorNameForStatus(status: number): string {
   let name: string;
-  if (STATUS_TEXT.has(status)) {
+  if (STATUS_TEXT[status as Status]) {
     name = status === Status.Teapot
       ? "Teapot"
-      : STATUS_TEXT.get(status)!.replace(/\W/g, "");
+      : STATUS_TEXT[status as Status]!.replace(/\W/g, "");
     if (status !== Status.InternalServerError) name += "Error";
   } else {
     name = `Unknown${status < 500 ? "Client" : "Server"}Error`;
@@ -66,7 +66,9 @@ function errorNameForStatus(status: number): string {
 }
 
 /** An error for an HTTP request. */
-export class HttpError extends Error {
+export class HttpError<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> extends Error {
   /**
    * The HTTP status associated with the error.
    * Must be a client or server error status. Defaults to 500.
@@ -77,33 +79,37 @@ export class HttpError extends Error {
    * Defaults to true for client error statuses and false for server error statuses.
    */
   expose: boolean;
+  /**
+   * Other data associated with the error.
+   */
+  data: T;
 
   constructor(
     status?: number,
     message?: string,
-    options?: HttpErrorOptions,
+    options?: HttpErrorOptions & T,
   );
-  constructor(status?: number, options?: HttpErrorOptions);
-  constructor(message?: string, options?: HttpErrorOptions);
-  constructor(options?: HttpErrorOptions);
+  constructor(status?: number, options?: HttpErrorOptions & T);
+  constructor(message?: string, options?: HttpErrorOptions & T);
+  constructor(options?: HttpErrorOptions & T);
   constructor(
-    statusOrMessageOrOptions?: number | string | HttpErrorOptions,
-    messageOrOptions?: string | HttpErrorOptions,
-    options?: HttpErrorOptions,
+    statusOrMessageOrOptions?: number | string | (HttpErrorOptions & T),
+    messageOrOptions?: string | (HttpErrorOptions & T),
+    options?: HttpErrorOptions & T,
   ) {
     const init = optionsFromArgs(
       statusOrMessageOrOptions,
       messageOrOptions,
       options,
     );
-    const { message, name, expose } = init;
+    const { message, name, expose, status: _status, cause, ...data } = init;
     const status = init.status ?? Status.InternalServerError;
 
     if (status < 400 || status >= 600) {
       throw new RangeError("invalid error status");
     }
 
-    super(message, init);
+    super(message, { cause });
     Object.defineProperty(this, "name", {
       configurable: true,
       enumerable: false,
@@ -112,6 +118,53 @@ export class HttpError extends Error {
     });
     this.status = status;
     this.expose = expose ?? (status < 500);
+    this.data = data as T;
+  }
+
+  /**
+   * Converts any HttpError like objects into an HttpError.
+   * If the object is already an instance of HttpError, it will be returned as is.
+   */
+  static from<T extends Record<string, unknown> = Record<string, unknown>>(
+    error: Partial<HttpError<T>>,
+  ): HttpError<T> {
+    if (error instanceof HttpError) return error;
+
+    const { name, message, status, expose, cause, data } = error;
+    const options = {
+      ...(data),
+      name,
+      message,
+      status,
+      expose,
+      cause,
+    } as HttpErrorOptions & T;
+    return new HttpError<T>(options);
+  }
+
+  /**
+   * Converts an HttpError to an options object that can be used to re-create it.
+   * The message will only be included if the error should be exposed.
+   *
+   * ```ts
+   * const error = new HttpError(400, "Invalid id");
+   * const options = HttpError.json(error);
+   * const copy = new HttpError(options);
+   * ```
+   */
+  static json<T extends Record<string, unknown> = Record<string, unknown>>(
+    error: HttpError<T>,
+  ): HttpErrorOptions & T {
+    const { name, message, status, expose, data } = error;
+    const json = {
+      name,
+      status,
+      ...data,
+    } as (HttpErrorOptions & T);
+    if (expose && message) {
+      json.message = message;
+    }
+    return json;
   }
 }
 
