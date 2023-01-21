@@ -113,7 +113,10 @@ export class HttpError<
       throw new RangeError("invalid error status");
     }
 
-    super(message, { cause });
+    const errorOptions = {} as ErrorOptions;
+    if (typeof cause !== "undefined") errorOptions.cause = cause;
+    super(message, errorOptions);
+
     Object.defineProperty(this, "name", {
       configurable: true,
       enumerable: false,
