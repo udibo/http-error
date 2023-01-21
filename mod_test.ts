@@ -336,6 +336,13 @@ it(httpErrorTests, "json", () => {
   const cause = new Error("fail");
   const data = { x: 2, y: 3 };
   assertEquals(
+    HttpError.json(cause),
+    {
+      name: "InternalServerError",
+      status: 500,
+    },
+  );
+  assertEquals(
     HttpError.json(
       new HttpError<typeof data>(400, "something went wrong", {
         name: "CustomError",
@@ -383,34 +390,12 @@ it(httpErrorTests, "json", () => {
 
 const fromTests = describe(httpErrorTests, "from");
 
-it(fromTests, "with all options", () => {
+it(fromTests, "from non HttpError", () => {
   const cause = new Error("fail");
-  const error = HttpError.from({
-    name: "CustomError",
-    message: "something went wrong",
-    status: 400,
-    expose: false,
-    cause,
-  });
-  assertEquals(error.toString(), "CustomError: something went wrong");
-  assertEquals(error.name, "CustomError");
-  assertEquals(error.message, "something went wrong");
-  assertEquals(error.status, 400);
-  assertEquals(error.expose, false);
-  assertEquals(error.cause, cause);
-});
-
-it(fromTests, "with data", () => {
-  const cause = new Error("fail");
-  const error = HttpError.from({
-    name: "CustomError",
-    message: "something went wrong",
-    cause,
-    data: { x: 2, y: 3 },
-  });
-  assertEquals(error.toString(), "CustomError: something went wrong");
-  assertEquals(error.name, "CustomError");
-  assertEquals(error.message, "something went wrong");
+  const error = HttpError.from(cause);
+  assertEquals(error.toString(), "InternalServerError");
+  assertEquals(error.name, "InternalServerError");
+  assertEquals(error.message, "");
   assertEquals(error.status, 500);
   assertEquals(error.expose, false);
   assertEquals(error.cause, cause);

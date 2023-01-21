@@ -133,20 +133,24 @@ export class HttpError<
    * If the object is already an instance of HttpError, it will be returned as is.
    */
   static from<T extends Record<string, unknown> = Record<string, unknown>>(
-    error: Partial<HttpError<T>>,
+    error: HttpError<T> | Error | unknown,
   ): HttpError<T> {
-    if (error instanceof HttpError) return error;
-
-    const { name, message, status, expose, cause, data } = error;
-    const options = {
-      ...(data),
-      name,
-      message,
-      status,
-      expose,
-      cause,
-    } as HttpErrorOptions & T;
-    return new HttpError<T>(options);
+    if (error instanceof HttpError) {
+      return error;
+    } else if (isHttpError(error)) {
+      const { name, message, status, expose, cause, data } = error;
+      const options = {
+        ...(data),
+        name,
+        message,
+        status,
+        expose,
+        cause,
+      } as HttpErrorOptions & T;
+      return new HttpError<T>(options);
+    } else {
+      return new HttpError(500, { cause: error }) as unknown as HttpError<T>;
+    }
   }
 
   /**
@@ -160,9 +164,11 @@ export class HttpError<
    * ```
    */
   static json<T extends Record<string, unknown> = Record<string, unknown>>(
-    error: HttpError<T>,
+    error: HttpError<T> | Error | unknown,
   ): HttpErrorOptions & T {
-    const { name, message, status, expose, data } = error;
+    const { name, message, status, expose, data } = isHttpError(error)
+      ? error
+      : HttpError.from(error);
     const json = {
       name,
       status,
