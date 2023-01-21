@@ -401,6 +401,18 @@ it(fromTests, "from non HttpError", () => {
   assertEquals(error.cause, cause);
 });
 
+it(fromTests, "from Error with status", () => {
+  const originalError = new Error("fail");
+  (originalError as HttpError).status = 400;
+  const error = HttpError.from(originalError);
+  assertEquals(error.toString(), "Error: fail");
+  assertEquals(error.name, "Error");
+  assertEquals(error.message, "fail");
+  assertEquals(error.status, 400);
+  assertEquals(error.expose, true);
+  assertEquals(error.cause, undefined);
+});
+
 it(fromTests, "passthrough HttpError instances", () => {
   const cause = new Error("fail");
   const originalError = new HttpError({

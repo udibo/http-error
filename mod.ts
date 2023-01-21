@@ -186,6 +186,5 @@ export function isHttpError(value: unknown): value is HttpError {
   return !!value && typeof value === "object" &&
     (value instanceof HttpError ||
       (value instanceof Error &&
-        typeof (value as HttpError).expose === "boolean" &&
         typeof (value as HttpError).status === "number"));
 }
