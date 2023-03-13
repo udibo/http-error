@@ -393,9 +393,9 @@ const fromTests = describe(httpErrorTests, "from");
 it(fromTests, "from non HttpError", () => {
   const cause = new Error("fail");
   const error = HttpError.from(cause);
-  assertEquals(error.toString(), "InternalServerError");
+  assertEquals(error.toString(), "InternalServerError: fail");
   assertEquals(error.name, "InternalServerError");
-  assertEquals(error.message, "");
+  assertEquals(error.message, "fail");
   assertEquals(error.status, 500);
   assertEquals(error.expose, false);
   assertEquals(error.cause, cause);

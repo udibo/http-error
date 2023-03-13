@@ -148,6 +148,10 @@ export class HttpError<
         cause,
       } as HttpErrorOptions & T;
       return new HttpError<T>(options);
+    } else if (error instanceof Error) {
+      return new HttpError(500, error.message, {
+        cause: error,
+      }) as unknown as HttpError<T>;
     } else {
       return new HttpError(500, { cause: error }) as unknown as HttpError<T>;
     }
