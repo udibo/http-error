@@ -1,5 +1,6 @@
 import { Status } from "./deps.ts";
 import {
+  ErrorResponse,
   HttpError,
   HttpErrorOptions,
   isHttpError,
@@ -528,3 +529,97 @@ it(
     );
   },
 );
+
+const ErrorResponseTests = describe("ErrorResponse");
+
+it(ErrorResponseTests, "from non Error", () => {
+  const errorResponse = new ErrorResponse("oops");
+  const expected = {
+    name: "InternalServerError",
+    status: 500,
+  };
+  assertEquals(errorResponse.error, expected);
+  assertEquals(
+    JSON.stringify(errorResponse),
+    JSON.stringify({ error: expected }),
+  );
+});
+
+it(ErrorResponseTests, "from Error", () => {
+  const errorResponse = new ErrorResponse(new Error("oops"));
+  const expected = {
+    name: "InternalServerError",
+    status: 500,
+  };
+  assertEquals(errorResponse.error, expected);
+  assertEquals(
+    JSON.stringify(errorResponse),
+    JSON.stringify({ error: expected }),
+  );
+});
+
+it(ErrorResponseTests, "from internal HttpError", () => {
+  const errorResponse = new ErrorResponse(new HttpError("oops"));
+  const expected = {
+    name: "InternalServerError",
+    status: 500,
+  };
+  assertEquals(errorResponse.error, expected);
+  assertEquals(
+    JSON.stringify(errorResponse),
+    JSON.stringify({ error: expected }),
+  );
+});
+
+it(ErrorResponseTests, "from external HttpError", () => {
+  const errorResponse = new ErrorResponse(new HttpError(400, "oops"));
+  const expected = {
+    name: "BadRequestError",
+    status: 400,
+    message: "oops",
+  };
+  assertEquals(errorResponse.error, expected);
+  assertEquals(
+    JSON.stringify(errorResponse),
+    JSON.stringify({ error: expected }),
+  );
+});
+
+it(ErrorResponseTests, "toError with internal ErrorResponse", () => {
+  const errorResponse = new ErrorResponse(new HttpError("oops"));
+  const error = ErrorResponse.toError(errorResponse);
+  assertEquals(error.toString(), "InternalServerError");
+  assertEquals(error.name, "InternalServerError");
+  assertEquals(error.message, "");
+  assertEquals(error.status, 500);
+  assertEquals(error.expose, false);
+  assertEquals(error.cause, undefined);
+});
+
+it(ErrorResponseTests, "toError with external ErrorResponse", () => {
+  const errorResponse = new ErrorResponse(new HttpError(400, "oops"));
+  const error = ErrorResponse.toError(errorResponse);
+  assertEquals(error.toString(), "BadRequestError: oops");
+  assertEquals(error.name, "BadRequestError");
+  assertEquals(error.message, "oops");
+  assertEquals(error.status, 400);
+  assertEquals(error.expose, true);
+  assertEquals(error.cause, undefined);
+});
+
+it(ErrorResponseTests, "toError with ErrorResponse JSON", () => {
+  const errorResponse = {
+    error: {
+      name: "BadRequestError",
+      message: "oops",
+      status: 400,
+    },
+  };
+  const error = ErrorResponse.toError(errorResponse);
+  assertEquals(error.toString(), "BadRequestError: oops");
+  assertEquals(error.name, "BadRequestError");
+  assertEquals(error.message, "oops");
+  assertEquals(error.status, 400);
+  assertEquals(error.expose, true);
+  assertEquals(error.cause, undefined);
+});
