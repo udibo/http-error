@@ -192,3 +192,39 @@ export function isHttpError(value: unknown): value is HttpError {
       (value instanceof Error &&
         typeof (value as HttpError).status === "number"));
 }
+
+/**
+ * A format for sharing errors with the browser.
+ * With a consistent format for error responses,
+ * the client can convert them back into an HttpErrors.
+ */
+export interface ErrorResponse<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> {
+  error: HttpErrorOptions & T;
+}
+
+/** Converts errors into error responses that the client can convert back into HttpErrors. */
+export class ErrorResponse<
+  T extends Record<string, unknown> = Record<string, unknown>,
+> implements ErrorResponse<T> {
+  error: HttpErrorOptions & T;
+
+  constructor(error: unknown) {
+    this.error = HttpError.json<T>(error);
+  }
+
+  static toError<T extends Record<string, unknown> = Record<string, unknown>>(
+    response: ErrorResponse<T>,
+  ): HttpError<T> {
+    return new HttpError(response.error);
+  }
+}
+
+/** Check if the response is an error response that can be converted to an HttpError. */
+export function isErrorResponse<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(response: unknown): response is ErrorResponse<T> {
+  return typeof response === "object" &&
+    typeof (response as ErrorResponse<T>)?.error === "object";
+}
