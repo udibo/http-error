@@ -3,6 +3,7 @@ import {
   ErrorResponse,
   HttpError,
   HttpErrorOptions,
+  isErrorResponse,
   isHttpError,
   optionsFromArgs,
 } from "./mod.ts";
@@ -391,7 +392,7 @@ it(httpErrorTests, "json", () => {
 
 const fromTests = describe(httpErrorTests, "from");
 
-it(fromTests, "from non HttpError", () => {
+it(fromTests, "non HttpError", () => {
   const cause = new Error("fail");
   const error = HttpError.from(cause);
   assertEquals(error.toString(), "InternalServerError: fail");
@@ -402,7 +403,7 @@ it(fromTests, "from non HttpError", () => {
   assertEquals(error.cause, cause);
 });
 
-it(fromTests, "from Error with status", () => {
+it(fromTests, "Error with status", () => {
   const originalError = new Error("fail");
   (originalError as HttpError).status = 400;
   const error = HttpError.from(originalError);
@@ -585,7 +586,9 @@ it(ErrorResponseTests, "from external HttpError", () => {
   );
 });
 
-it(ErrorResponseTests, "toError with internal ErrorResponse", () => {
+const toErrorTests = describe(ErrorResponseTests, "toError");
+
+it(toErrorTests, "with internal ErrorResponse", () => {
   const errorResponse = new ErrorResponse(new HttpError("oops"));
   const error = ErrorResponse.toError(errorResponse);
   assertEquals(error.toString(), "InternalServerError");
@@ -596,7 +599,7 @@ it(ErrorResponseTests, "toError with internal ErrorResponse", () => {
   assertEquals(error.cause, undefined);
 });
 
-it(ErrorResponseTests, "toError with external ErrorResponse", () => {
+it(toErrorTests, "with external ErrorResponse", () => {
   const errorResponse = new ErrorResponse(new HttpError(400, "oops"));
   const error = ErrorResponse.toError(errorResponse);
   assertEquals(error.toString(), "BadRequestError: oops");
@@ -607,7 +610,7 @@ it(ErrorResponseTests, "toError with external ErrorResponse", () => {
   assertEquals(error.cause, undefined);
 });
 
-it(ErrorResponseTests, "toError with ErrorResponse JSON", () => {
+it(toErrorTests, "with ErrorResponse JSON", () => {
   const errorResponse = {
     error: {
       name: "BadRequestError",
@@ -622,4 +625,26 @@ it(ErrorResponseTests, "toError with ErrorResponse JSON", () => {
   assertEquals(error.status, 400);
   assertEquals(error.expose, true);
   assertEquals(error.cause, undefined);
+});
+
+it("isErrorResponse", () => {
+  assertEquals(isErrorResponse({}), false);
+  assertEquals(isErrorResponse({ success: true }), false);
+  assertEquals(isErrorResponse({ error: {} }), true);
+  assertEquals(
+    isErrorResponse({
+      error: { status: 400, message: "something went wrong" },
+    }),
+    true,
+  );
+  assertEquals(
+    isErrorResponse({
+      error: {
+        status: 400,
+        name: "CustomError",
+        message: "something went wrong",
+      },
+    }),
+    true,
+  );
 });
