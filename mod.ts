@@ -186,7 +186,9 @@ export class HttpError<
 }
 
 /** Checks if the value as an HttpError. */
-export function isHttpError(value: unknown): value is HttpError {
+export function isHttpError<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(value: unknown): value is HttpError<T> {
   return !!value && typeof value === "object" &&
     (value instanceof HttpError ||
       (value instanceof Error &&
