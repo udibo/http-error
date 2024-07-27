@@ -41,7 +41,7 @@ jobs:
           files: cov.lcov
       - name: Release info
         if: |
-          github.repository == 'udibo/http_error' &&
+          github.repository == 'udibo/http-error' &&
           matrix.os == 'ubuntu-latest' &&
           matrix.deno == 'v1.x' &&
           startsWith(github.ref, 'refs/tags/')
@@ -52,7 +52,7 @@ jobs:
         if: env.RELEASE_VERSION != ''
         run: |
           mkdir -p target/release
-          deno bundle mod.ts target/release/http_error_${RELEASE_VERSION}.js
+          deno bundle mod.ts target/release/http-error.${RELEASE_VERSION}.js
       - name: Release
         uses: softprops/action-gh-release@v1
         if: env.RELEASE_VERSION != ''
@@ -61,4 +61,4 @@ jobs:
         with:
           draft: true
           files: |
-            target/release/http_error_${{ env.RELEASE_VERSION }}.js
+            target/release/http-error.${{ env.RELEASE_VERSION }}.js
