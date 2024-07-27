@@ -1,8 +1,3 @@
-/**
- * Utilities for creating and working with Http Errors.
- *
- * @module
- */
 import { STATUS_CODE, STATUS_TEXT, type StatusCode } from "@std/http/status";
 
 /** Options for initializing an HttpError. */
