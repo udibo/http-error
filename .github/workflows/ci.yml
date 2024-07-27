@@ -38,7 +38,10 @@ jobs:
           matrix.deno == 'v1.x'
         uses: codecov/codecov-action@v4
         with:
+          fail_ci_if_error: true
           files: cov.lcov
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Release info
         if: |
           github.repository == 'udibo/http-error' &&
