@@ -1,19 +1,15 @@
-import { Status } from "./deps.ts";
+import { STATUS_CODE, type StatusCode } from "@std/http/status";
+import { assertEquals, assertStrictEquals, assertThrows } from "@std/assert";
+import { describe, it } from "@std/testing/bdd";
+
 import {
   ErrorResponse,
   HttpError,
-  HttpErrorOptions,
+  type HttpErrorOptions,
   isErrorResponse,
   isHttpError,
   optionsFromArgs,
 } from "./mod.ts";
-import {
-  assertEquals,
-  assertStrictEquals,
-  assertThrows,
-  describe,
-  it,
-} from "./test_deps.ts";
 
 const httpErrorTests = describe("HttpError");
 
@@ -119,52 +115,52 @@ it(httpErrorTests, "invalid status", () => {
   );
 });
 
-const DEFAULT_ERROR_NAMES = new Map<Status, string>(([
-  [Status.BadRequest, "BadRequest"],
-  [Status.Unauthorized, "Unauthorized"],
-  [Status.PaymentRequired, "PaymentRequired"],
-  [Status.Forbidden, "Forbidden"],
-  [Status.NotFound, "NotFound"],
-  [Status.MethodNotAllowed, "MethodNotAllowed"],
-  [Status.NotAcceptable, "NotAcceptable"],
-  [Status.ProxyAuthRequired, "ProxyAuthRequired"],
-  [Status.RequestTimeout, "RequestTimeout"],
-  [Status.Conflict, "Conflict"],
-  [Status.Gone, "Gone"],
-  [Status.LengthRequired, "LengthRequired"],
-  [Status.PreconditionFailed, "PreconditionFailed"],
-  [Status.RequestEntityTooLarge, "RequestEntityTooLarge"],
-  [Status.RequestURITooLong, "RequestURITooLong"],
-  [Status.UnsupportedMediaType, "UnsupportedMediaType"],
-  [Status.RequestedRangeNotSatisfiable, "RequestedRangeNotSatisfiable"],
-  [Status.ExpectationFailed, "ExpectationFailed"],
-  [Status.Teapot, "Teapot"],
-  [Status.MisdirectedRequest, "MisdirectedRequest"],
-  [Status.UnprocessableEntity, "UnprocessableEntity"],
-  [Status.Locked, "Locked"],
-  [Status.FailedDependency, "FailedDependency"],
-  [Status.TooEarly, "TooEarly"],
-  [Status.UpgradeRequired, "UpgradeRequired"],
-  [Status.PreconditionRequired, "PreconditionRequired"],
-  [Status.TooManyRequests, "TooManyRequests"],
-  [Status.RequestHeaderFieldsTooLarge, "RequestHeaderFieldsTooLarge"],
-  [Status.UnavailableForLegalReasons, "UnavailableForLegalReasons"],
-  [Status.InternalServerError, "InternalServer"],
-  [Status.NotImplemented, "NotImplemented"],
-  [Status.BadGateway, "BadGateway"],
-  [Status.ServiceUnavailable, "ServiceUnavailable"],
-  [Status.GatewayTimeout, "GatewayTimeout"],
-  [Status.HTTPVersionNotSupported, "HTTPVersionNotSupported"],
-  [Status.VariantAlsoNegotiates, "VariantAlsoNegotiates"],
-  [Status.InsufficientStorage, "InsufficientStorage"],
-  [Status.LoopDetected, "LoopDetected"],
-  [Status.NotExtended, "NotExtended"],
-  [Status.NetworkAuthenticationRequired, "NetworkAuthenticationRequired"],
-] as [Status, string][]).map(([status, name]) => [status, `${name}Error`]));
+const DEFAULT_ERROR_NAMES = new Map<StatusCode, string>(([
+  [STATUS_CODE.BadRequest, "BadRequest"],
+  [STATUS_CODE.Unauthorized, "Unauthorized"],
+  [STATUS_CODE.PaymentRequired, "PaymentRequired"],
+  [STATUS_CODE.Forbidden, "Forbidden"],
+  [STATUS_CODE.NotFound, "NotFound"],
+  [STATUS_CODE.MethodNotAllowed, "MethodNotAllowed"],
+  [STATUS_CODE.NotAcceptable, "NotAcceptable"],
+  [STATUS_CODE.ProxyAuthRequired, "ProxyAuthRequired"],
+  [STATUS_CODE.RequestTimeout, "RequestTimeout"],
+  [STATUS_CODE.Conflict, "Conflict"],
+  [STATUS_CODE.Gone, "Gone"],
+  [STATUS_CODE.LengthRequired, "LengthRequired"],
+  [STATUS_CODE.PreconditionFailed, "PreconditionFailed"],
+  [STATUS_CODE.ContentTooLarge, "ContentTooLarge"],
+  [STATUS_CODE.URITooLong, "URITooLong"],
+  [STATUS_CODE.UnsupportedMediaType, "UnsupportedMediaType"],
+  [STATUS_CODE.RangeNotSatisfiable, "RangeNotSatisfiable"],
+  [STATUS_CODE.ExpectationFailed, "ExpectationFailed"],
+  [STATUS_CODE.Teapot, "Teapot"],
+  [STATUS_CODE.MisdirectedRequest, "MisdirectedRequest"],
+  [STATUS_CODE.UnprocessableEntity, "UnprocessableEntity"],
+  [STATUS_CODE.Locked, "Locked"],
+  [STATUS_CODE.FailedDependency, "FailedDependency"],
+  [STATUS_CODE.TooEarly, "TooEarly"],
+  [STATUS_CODE.UpgradeRequired, "UpgradeRequired"],
+  [STATUS_CODE.PreconditionRequired, "PreconditionRequired"],
+  [STATUS_CODE.TooManyRequests, "TooManyRequests"],
+  [STATUS_CODE.RequestHeaderFieldsTooLarge, "RequestHeaderFieldsTooLarge"],
+  [STATUS_CODE.UnavailableForLegalReasons, "UnavailableForLegalReasons"],
+  [STATUS_CODE.InternalServerError, "InternalServer"],
+  [STATUS_CODE.NotImplemented, "NotImplemented"],
+  [STATUS_CODE.BadGateway, "BadGateway"],
+  [STATUS_CODE.ServiceUnavailable, "ServiceUnavailable"],
+  [STATUS_CODE.GatewayTimeout, "GatewayTimeout"],
+  [STATUS_CODE.HTTPVersionNotSupported, "HTTPVersionNotSupported"],
+  [STATUS_CODE.VariantAlsoNegotiates, "VariantAlsoNegotiates"],
+  [STATUS_CODE.InsufficientStorage, "InsufficientStorage"],
+  [STATUS_CODE.LoopDetected, "LoopDetected"],
+  [STATUS_CODE.NotExtended, "NotExtended"],
+  [STATUS_CODE.NetworkAuthenticationRequired, "NetworkAuthenticationRequired"],
+] as [StatusCode, string][]).map(([status, name]) => [status, `${name}Error`]));
 
 function expectedDefaultErrorName(status: number): string {
-  return DEFAULT_ERROR_NAMES.has(status)
-    ? DEFAULT_ERROR_NAMES.get(status)!
+  return DEFAULT_ERROR_NAMES.has(status as StatusCode)
+    ? DEFAULT_ERROR_NAMES.get(status as StatusCode)!
     : `Unknown${status < 500 ? "Client" : "Server"}Error`;
 }
 
