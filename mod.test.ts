@@ -584,6 +584,32 @@ it(ErrorResponseTests, "from external HttpError", () => {
 
 const toErrorTests = describe(ErrorResponseTests, "toError");
 
+it(toErrorTests, "with text response", async () => {
+  const response = new Response("oops", { status: 400 });
+  const error = await ErrorResponse.toError(response);
+  assertEquals(error.toString(), "BadRequestError");
+  assertEquals(error.name, "BadRequestError");
+  assertEquals(error.message, "");
+  assertEquals(error.status, 400);
+  assertEquals(error.expose, true);
+  assertEquals(error.cause, undefined);
+});
+
+it(toErrorTests, "with error response", async () => {
+  const response = new Response(
+    JSON.stringify({ error: { status: 400, message: "oops", custom: "data" } }),
+    { status: 400 },
+  );
+  const error = await ErrorResponse.toError(response);
+  assertEquals(error.toString(), "BadRequestError: oops");
+  assertEquals(error.name, "BadRequestError");
+  assertEquals(error.message, "oops");
+  assertEquals(error.status, 400);
+  assertEquals(error.expose, true);
+  assertEquals(error.cause, undefined);
+  assertEquals(error.data, { custom: "data" });
+});
+
 it(toErrorTests, "with internal ErrorResponse", () => {
   const errorResponse = new ErrorResponse(new HttpError("oops"));
   const error = ErrorResponse.toError(errorResponse);

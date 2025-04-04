@@ -1,11 +1,7 @@
 {
   "deno.enable": true,
   "deno.lint": true,
-  "deno.unstable": false,
-  "deno.config": "./deno.jsonc",
-  "files.associations": {
-    "*.css": "tailwindcss"
-  },
+  "deno.config": "./deno.json",
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "denoland.vscode-deno",
   "editor.quickSuggestions": {

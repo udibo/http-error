@@ -1,28 +1,38 @@
 {
-  "version": "3",
-  "packages": {
-    "specifiers": {
-      "jsr:@std/assert@1": "jsr:@std/assert@1.0.0",
-      "jsr:@std/http@0": "jsr:@std/http@0.224.5",
-      "jsr:@std/internal@^1.0.1": "jsr:@std/internal@1.0.1",
-      "jsr:@std/testing@0": "jsr:@std/testing@0.225.3"
+  "version": "4",
+  "specifiers": {
+    "jsr:@std/assert@1": "1.0.0",
+    "jsr:@std/assert@^1.0.12": "1.0.12",
+    "jsr:@std/http@1": "1.0.13",
+    "jsr:@std/internal@^1.0.1": "1.0.1",
+    "jsr:@std/internal@^1.0.6": "1.0.6",
+    "jsr:@std/testing@1": "1.0.10"
+  },
+  "jsr": {
+    "@std/assert@1.0.0": {
+      "integrity": "0e4f6d873f7f35e2a1e6194ceee39686c996b9e5d134948e644d35d4c4df2008",
+      "dependencies": [
+        "jsr:@std/internal@^1.0.1"
+      ]
     },
-    "jsr": {
-      "@std/assert@1.0.0": {
-        "integrity": "0e4f6d873f7f35e2a1e6194ceee39686c996b9e5d134948e644d35d4c4df2008",
-        "dependencies": [
-          "jsr:@std/internal@^1.0.1"
-        ]
-      },
-      "@std/http@0.224.5": {
-        "integrity": "b03b5d1529f6c423badfb82f6640f9f2557b4034cd7c30655ba5bb447ff750a4"
-      },
-      "@std/internal@1.0.1": {
-        "integrity": "6f8c7544d06a11dd256c8d6ba54b11ed870aac6c5aeafff499892662c57673e6"
-      },
-      "@std/testing@0.225.3": {
-        "integrity": "348c24d0479d44ab3dbb4f26170f242e19f24051b45935d4a9e7ca0ab7e37780"
-      }
+    "@std/assert@1.0.12": {
+      "integrity": "08009f0926dda9cbd8bef3a35d3b6a4b964b0ab5c3e140a4e0351fbf34af5b9a"
+    },
+    "@std/http@1.0.13": {
+      "integrity": "d29618b982f7ae44380111f7e5b43da59b15db64101198bb5f77100d44eb1e1e"
+    },
+    "@std/internal@1.0.1": {
+      "integrity": "6f8c7544d06a11dd256c8d6ba54b11ed870aac6c5aeafff499892662c57673e6"
+    },
+    "@std/internal@1.0.6": {
+      "integrity": "9533b128f230f73bd209408bb07a4b12f8d4255ab2a4d22a1fd6d87304aca9a4"
+    },
+    "@std/testing@1.0.10": {
+      "integrity": "8997bd0b0df020b81bf5eae103c66622918adeff7e45e96291c92a29dbf82cc1",
+      "dependencies": [
+        "jsr:@std/assert@^1.0.12",
+        "jsr:@std/internal@^1.0.6"
+      ]
     }
   },
   "remote": {
@@ -36,8 +46,8 @@
   "workspace": {
     "dependencies": [
       "jsr:@std/assert@1",
-      "jsr:@std/http@0",
-      "jsr:@std/testing@0"
+      "jsr:@std/http@1",
+      "jsr:@std/testing@1"
     ]
   }
 }

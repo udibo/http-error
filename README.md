@@ -197,6 +197,21 @@ import { ErrorResponse, HttpError, isErrorResponse } from "@udibo/http-error";
 
 async function getMovies() {
   const response = await fetch("https://example.com/movies.json");
+  if (!response.ok) throw new ErrorResponse.toError(movies);
+  return await response.json();
+}
+```
+
+The next example is similar, but uses the response JSON instead of the response.
+The advantage of the first approach in the previous example is that it will
+produce an HttpError based on the status code in the case that the response
+doesn't have valid JSON.
+
+```ts
+import { ErrorResponse, HttpError, isErrorResponse } from "@udibo/http-error";
+
+async function getMovies() {
+  const response = await fetch("https://example.com/movies.json");
   const movies = await response.json();
   if (isErrorResponse(movies)) throw new ErrorResponse.toError(movies);
   if (response.status >= 400) {
