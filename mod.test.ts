@@ -610,6 +610,19 @@ it(toErrorTests, "with error response", async () => {
   assertEquals(error.data, { custom: "data" });
 });
 
+it(toErrorTests, "with json response", async () => {
+  const response = new Response(JSON.stringify({ message: "oops" }), {
+    status: 400,
+  });
+  const error = await ErrorResponse.toError(response);
+  assertEquals(error.toString(), "BadRequestError: oops");
+  assertEquals(error.name, "BadRequestError");
+  assertEquals(error.message, "oops");
+  assertEquals(error.status, 400);
+  assertEquals(error.expose, true);
+  assertEquals(error.cause, undefined);
+});
+
 it(toErrorTests, "with internal ErrorResponse", () => {
   const errorResponse = new ErrorResponse(new HttpError("oops"));
   const error = ErrorResponse.toError(errorResponse);

@@ -530,7 +530,7 @@ export class ErrorResponse<
       return response.json().then((json) => {
         return isErrorResponse<T>(json)
           ? new HttpError(response.status, json.error)
-          : new HttpError<T>(response.status);
+          : new HttpError<T>(response.status, json.message);
       }).catch(() => {
         return new HttpError<T>(response.status);
       });
