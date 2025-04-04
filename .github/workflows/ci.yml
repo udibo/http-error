@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        deno: [v1.x, canary]
+        deno: [v2.x, canary]
       fail-fast: true
     steps:
       - name: Clone repository
@@ -30,7 +30,7 @@ jobs:
       - name: Generate lcov
         if: |
           matrix.os == 'ubuntu-latest' &&
-          matrix.deno == 'v1.x'
+          matrix.deno == 'v2.x'
         run: deno coverage --lcov cov > cov.lcov
       - name: Upload coverage
         if: |
