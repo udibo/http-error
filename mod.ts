@@ -13,6 +13,10 @@ export interface HttpErrorOptions extends ErrorOptions {
    */
   expose?: boolean;
   /**
+   * The cause of the error.
+   */
+  cause?: unknown;
+  /**
    * Other data associated with the error.
    */
   [key: string]: unknown;
@@ -448,11 +452,29 @@ export class ErrorResponse<
   }
 
   /**
-   * This function gives a client the ability to convert the error response JSON into
+   * This function gives a client the ability to convert the error response into
    * an HttpError.
+   *
+   * The easiest way to convert an error response into an HttpError is to directly
+   * pass the response to the `ErrorResponse.toError` function.
    *
    * In the following example, if getMovies is called and API endpoint returned an
    * ErrorResponse, it would be converted into an HttpError object and be thrown.
+   *
+   * ```ts
+   * import { ErrorResponse, HttpError, isErrorResponse } from "@udibo/http-error";
+   *
+   * async function getMovies() {
+   *   const response = await fetch("https://example.com/movies.json");
+   *   if (!response.ok) throw new ErrorResponse.toError(response);
+   *   return await response.json();
+   * }
+   * ```
+   *
+   * This function also supports converting error response JSON into an HttpError.
+   * However, it is recommended to use the first approach in the previous example as
+   * it will produce an HttpError based on the status code in the case that the
+   * response doesn't have valid JSON.
    *
    * ```ts
    * import { ErrorResponse, HttpError, isErrorResponse } from "@udibo/http-error";
@@ -487,10 +509,32 @@ export class ErrorResponse<
    * @param response - The error response to convert.
    * @returns An HttpError object.
    */
-  static toError<T extends Record<string, unknown> = Record<string, unknown>>(
+  static toError<
+    T extends Record<string, unknown> = Record<string, unknown>,
+  >(
     response: ErrorResponse<T>,
-  ): HttpError<T> {
-    return new HttpError(response.error);
+  ): HttpError<T>;
+  static toError<
+    T extends Record<string, unknown> = Record<string, unknown>,
+  >(
+    response: Response,
+  ): Promise<HttpError<T>>;
+  static toError<
+    T extends Record<string, unknown> = Record<string, unknown>,
+  >(
+    response: ErrorResponse<T> | Response,
+  ): HttpError<T> | Promise<HttpError<T>> {
+    if (isErrorResponse(response)) {
+      return new HttpError(response.error);
+    } else {
+      return response.json().then((json) => {
+        return isErrorResponse<T>(json)
+          ? new HttpError(response.status, json.error)
+          : new HttpError<T>(response.status, json.message);
+      }).catch(() => {
+        return new HttpError<T>(response.status);
+      });
+    }
   }
 }
 
