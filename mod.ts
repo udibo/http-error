@@ -466,7 +466,7 @@ export class ErrorResponse<
    *
    * async function getMovies() {
    *   const response = await fetch("https://example.com/movies.json");
-   *   if (!response.ok) throw new ErrorResponse.toError(response);
+   *   if (!response.ok) throw await ErrorResponse.toError(response);
    *   return await response.json();
    * }
    * ```
@@ -482,7 +482,7 @@ export class ErrorResponse<
    * async function getMovies() {
    *   const response = await fetch("https://example.com/movies.json");
    *   const movies = await response.json();
-   *   if (isErrorResponse(movies)) throw new ErrorResponse.toError(movies);
+   *   if (isErrorResponse(movies)) throw ErrorResponse.toError(movies);
    *   if (response.status >= 400) {
    *     throw new HttpError(response.status, "Invalid response");
    *   }
