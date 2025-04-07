@@ -51,11 +51,6 @@ jobs:
         shell: bash
         run: |
           echo "RELEASE_VERSION=${GITHUB_REF/refs\/tags\//}" >> $GITHUB_ENV
-      - name: Bundle
-        if: env.RELEASE_VERSION != ''
-        run: |
-          mkdir -p target/release
-          deno bundle mod.ts target/release/http-error.${RELEASE_VERSION}.js
       - name: Release
         uses: softprops/action-gh-release@v1
         if: env.RELEASE_VERSION != ''
@@ -63,5 +58,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           draft: true
-          files: |
-            target/release/http-error.${{ env.RELEASE_VERSION }}.js
