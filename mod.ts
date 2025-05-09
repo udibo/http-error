@@ -1,25 +1,64 @@
 import { STATUS_CODE, STATUS_TEXT, type StatusCode } from "@std/http/status";
 
 /** Options for initializing an HttpError. */
-export interface HttpErrorOptions extends ErrorOptions {
-  /** The name of the error. Default based on error status. */
+export interface HttpErrorOptions<
+  Extensions extends object = Record<string, unknown>,
+> extends ErrorOptions {
+  /** The name of the error. The default value is based on error status. This will be the default value for the `title` property in the response body. */
   name?: string;
+  /** The message of the error. This will be the default value for the `detail` property in the response body. */
   message?: string;
   /** The HTTP status associated with the error. Defaults to 500. */
   status?: number;
+  /** The HTTP status text associated with the error. */
+  statusText?: string;
   /**
-   * Determines if the error should be exposed in the response.
+   * Determines if the error detail should be exposed in the response.
    * Defaults to true for client error statuses and false for server error statuses.
    */
   expose?: boolean;
   /**
-   * The cause of the error.
+   * The cause of the error. This is never exposed in the response.
    */
   cause?: unknown;
   /**
-   * Other data associated with the error.
+   * The type of the error is a URI reference that identifies the problem type.
    */
-  [key: string]: unknown;
+  type?: string;
+  /**
+   * The instance of the error is a URI reference that identifies the specific occurrence of the problem.
+   */
+  instance?: string;
+  /**
+   * Additional data to send in the response.
+   */
+  extensions?: Extensions;
+  /**
+   * The headers to send in the response. The content-type will default to application/problem+json unless otherwise specified in the headers.
+   */
+  headers?: Headers | Record<string, string>;
+}
+
+interface ProblemDetailsBase {
+  type?: string;
+  status?: number;
+  title?: string;
+  detail?: string;
+  instance?: string;
+}
+
+export type ProblemDetails<
+  Extensions extends object = Record<string, unknown>,
+> = ProblemDetailsBase & Extensions;
+
+function isProblemDetails<
+  Extensions extends object = Record<string, unknown>,
+>(value: unknown): value is ProblemDetails<Extensions> {
+  return typeof value === "object" && value !== null && (
+    "status" in value ||
+    "title" in value ||
+    "type" in value
+  );
 }
 
 /**
@@ -64,16 +103,16 @@ export interface HttpErrorOptions extends ErrorOptions {
  * @param options - The options.
  * @returns The options object.
  */
-export function optionsFromArgs<
-  Init extends HttpErrorOptions = HttpErrorOptions,
+function optionsFromArgs<
+  Extensions extends object = Record<string, unknown>,
 >(
-  statusOrMessageOrOptions?: number | string | Init,
-  messageOrOptions?: string | Init,
-  options?: Init,
-): Init {
+  statusOrMessageOrOptions?: number | string | (HttpErrorOptions<Extensions>),
+  messageOrOptions?: string | (HttpErrorOptions<Extensions>),
+  options?: HttpErrorOptions<Extensions>,
+): HttpErrorOptions<Extensions> {
   let status: number | undefined = undefined;
   let message: string | undefined = undefined;
-  let init: Init | undefined = options;
+  let init: HttpErrorOptions<Extensions> | undefined = options;
 
   if (typeof statusOrMessageOrOptions === "number") {
     status = statusOrMessageOrOptions;
@@ -85,7 +124,7 @@ export function optionsFromArgs<
     }
   } else if (typeof statusOrMessageOrOptions === "string") {
     message = statusOrMessageOrOptions;
-    init = messageOrOptions as (Init | undefined);
+    init = messageOrOptions as HttpErrorOptions<Extensions> | undefined;
     status = init?.status ?? status;
   } else if (typeof messageOrOptions === "string") {
     message = messageOrOptions;
@@ -95,7 +134,7 @@ export function optionsFromArgs<
     message = init?.message;
   }
 
-  return { ...init, status, message } as Init;
+  return { ...init, status, message } as HttpErrorOptions<Extensions>;
 }
 
 function errorNameForStatus(status: number): string {
@@ -204,49 +243,107 @@ function errorNameForStatus(status: number): string {
  * }
  * ```
  *
- * @param T - The type of data associated with the error.
+ * The HttpError class also provides `toJSON()` and `getResponse()` methods to
+ * convert errors into RFC 9457 Problem Details objects or Response objects,
+ * respectively. This makes it easy to return standardized error responses from
+ * your HTTP APIs.
+ *
+ * ```ts
+ * import { HttpError } from "@udibo/http-error";
+ *
+ * const error = new HttpError(403, "Access denied", {
+ *   type: "/errors/forbidden",
+ *   instance: "/docs/123/edit",
+ *   extensions: { accountId: "user-abc" },
+ * });
+ *
+ * // Get Problem Details object
+ * const problemDetails = error.toJSON();
+ * console.log(problemDetails);
+ * // Output:
+ * // {
+ * //   accountId: "user-abc",
+ * //   status: 403,
+ * //   title: "ForbiddenError",
+ * //   detail: "Access denied",
+ * //   type: "/errors/forbidden",
+ * //   instance: "/docs/123/edit"
+ * // }
+ *
+ * // Get a Response object
+ * const response = error.getResponse();
+ * console.log(response.status); // 403
+ * response.json().then(body => console.log(body)); // Same as problemDetails
+ * ```
+ *
+ * @typeparam Extensions - Other data associated with the error that will be included in the error response.
  * @param status - The HTTP status associated with the error.
  * @param message - The message associated with the error.
  * @param options - Other data associated with the error.
  * @returns An HttpError object.
  */
 export class HttpError<
-  T extends Record<string, unknown> = Record<string, unknown>,
+  Extensions extends object = Record<string, unknown>,
 > extends Error {
   /**
    * The HTTP status associated with the error.
    * Must be a client or server error status. Defaults to 500.
    */
   status: number;
+  /** The HTTP status text associated with the error. */
+  statusText?: string;
   /**
-   * Determines if the error should be exposed in the response.
+   * Determines if the error detail should be exposed in the response.
    * Defaults to true for client error statuses and false for server error statuses.
    */
-  expose: boolean;
+  expose?: boolean;
   /**
-   * Other data associated with the error.
+   * The type of the error is a URI reference that identifies the problem type.
    */
-  data: T;
+  type?: string;
+  /**
+   * The instance of the error is a URI reference that identifies the specific occurrence of the problem.
+   */
+  instance?: string;
+  /**
+   * Other data associated with the error that will be included in the error response.
+   */
+  extensions: Extensions;
+  /**
+   * The headers to send in the response. The content-type will default to application/problem+json unless otherwise specified in the headers.
+   */
+  headers: Headers;
 
   constructor(
     status?: number,
     message?: string,
-    options?: HttpErrorOptions & T,
+    options?: HttpErrorOptions<Extensions>,
   );
-  constructor(status?: number, options?: HttpErrorOptions & T);
-  constructor(message?: string, options?: HttpErrorOptions & T);
-  constructor(options?: HttpErrorOptions & T);
+  constructor(status?: number, options?: HttpErrorOptions<Extensions>);
+  constructor(message?: string, options?: HttpErrorOptions<Extensions>);
+  constructor(options?: HttpErrorOptions<Extensions>);
   constructor(
-    statusOrMessageOrOptions?: number | string | (HttpErrorOptions & T),
-    messageOrOptions?: string | (HttpErrorOptions & T),
-    options?: HttpErrorOptions & T,
+    statusOrMessageOrOptions?: number | string | HttpErrorOptions<Extensions>,
+    messageOrOptions?: string | HttpErrorOptions<Extensions>,
+    options?: HttpErrorOptions<Extensions>,
   ) {
     const init = optionsFromArgs(
       statusOrMessageOrOptions,
       messageOrOptions,
       options,
     );
-    const { message, name, expose, status: _status, cause, ...data } = init;
+    const {
+      message,
+      name,
+      expose,
+      status: _status,
+      statusText,
+      cause,
+      type,
+      instance,
+      extensions,
+      headers,
+    } = init;
     const status = init.status ?? STATUS_CODE.InternalServerError;
 
     if (status < 400 || status >= 600) {
@@ -264,8 +361,17 @@ export class HttpError<
       writable: true,
     });
     this.status = status;
+    if (statusText) this.statusText = statusText;
+    if (type) this.type = type;
+    if (instance) this.instance = instance;
     this.expose = expose ?? (status < 500);
-    this.data = data as T;
+    this.extensions = extensions ?? {} as Extensions;
+    this.headers = headers instanceof Headers
+      ? headers
+      : new Headers(headers ?? {});
+    if (!this.headers.has("content-type")) {
+      this.headers.set("content-type", "application/problem+json");
+    }
   }
 
   /**
@@ -286,285 +392,325 @@ export class HttpError<
    * @param error - The error to convert.
    * @returns An HttpError object.
    */
-  static from<T extends Record<string, unknown> = Record<string, unknown>>(
-    error: HttpError<T> | Error | unknown,
-  ): HttpError<T> {
+  static from<
+    Extensions extends object = Record<string, unknown>,
+  >(
+    error: HttpError<Extensions> | ProblemDetails<Extensions>,
+  ): HttpError<Extensions>;
+  static from<
+    Extensions extends object = Record<string, unknown>,
+  >(
+    error: Response,
+  ): Promise<HttpError<Extensions>>;
+  static from(
+    error: Error,
+  ): HttpError;
+  static from<
+    Extensions extends object = Record<string, unknown>,
+  >(
+    error: unknown,
+  ): HttpError<Extensions>;
+  static from<
+    Extensions extends object = Record<string, unknown>,
+  >(
+    error:
+      | HttpError<Extensions>
+      | Error
+      | ProblemDetails<Extensions>
+      | Response
+      | unknown,
+  ): HttpError<Extensions> | Promise<HttpError<Extensions>> {
     if (error instanceof HttpError) {
       return error;
-    } else if (isHttpError(error)) {
-      const { name, message, status, expose, cause, data } = error;
-      const options = {
-        ...data,
+    } else if (isHttpErrorLike(error)) {
+      const {
         name,
         message,
         status,
         expose,
         cause,
-      } as HttpErrorOptions & T;
-      return new HttpError<T>(options);
+        type,
+        instance,
+        extensions,
+        headers,
+      } = error as HttpError<Extensions>;
+      const options = {
+        name,
+        message,
+        status,
+        expose,
+        cause,
+        type,
+        instance,
+        extensions,
+        headers,
+      } as HttpErrorOptions<Extensions>;
+      return new HttpError<Extensions>(options);
     } else if (error instanceof Error) {
       return new HttpError(500, error.message, {
         cause: error,
-      }) as unknown as HttpError<T>;
+      }) as unknown as HttpError<Extensions>;
+    } else if (error instanceof Response) {
+      return error.json()
+        .then((json: unknown) => {
+          if (!isProblemDetails<Extensions>(json)) {
+            return new HttpError<Extensions>(
+              500,
+              "invalid problem details response",
+              {
+                cause: json,
+              },
+            );
+          }
+          const { status, title, detail, type, instance, ...extensions } = json;
+          const options: HttpErrorOptions<Extensions> = {
+            status: status || error.status,
+            name: title,
+            message: detail,
+            type,
+            instance,
+            extensions: extensions as Extensions,
+          };
+          return new HttpError(options);
+        })
+        .catch((parseError: unknown) => {
+          return new HttpError<Extensions>(
+            500,
+            "could not parse problem details response",
+            { cause: parseError },
+          );
+        });
+    } else if (isProblemDetails(error)) {
+      const { status, title, detail, type, instance, ...extensions } = error;
+      const options: HttpErrorOptions<Extensions> = {
+        status,
+        name: title,
+        message: detail,
+        type,
+        instance,
+        extensions: extensions as Extensions,
+      };
+      return new HttpError(options);
     } else {
-      return new HttpError(500, { cause: error }) as unknown as HttpError<T>;
+      return new HttpError<Extensions>(500, "unexpected error type", {
+        cause: error,
+      });
     }
   }
 
   /**
-   * Converts an HttpError to an options object that can be used to re-create it.
-   * The message will only be included if the error should be exposed.
+   * Converts the HttpError to a ProblemDetails object that matches the RFC 9457
+   * Problem Details for HTTP APIs specification. This object is suitable for
+   * direct serialization into a JSON response body.
    *
-   * ```ts
-   * import { HttpError } from "@udibo/http-error";
-   *
-   * const error = new HttpError(400, "Invalid id");
-   * const options = HttpError.json(error);
-   * const copy = new HttpError(options);
-   * ```
-   *
-   * @param error - The error to convert.
-   * @returns The options object.
+   * @returns A ProblemDetails object representing the error, compliant with RFC 9457.
    */
-  static json<T extends Record<string, unknown> = Record<string, unknown>>(
-    error: HttpError<T> | Error | unknown,
-  ): HttpErrorOptions & T {
-    const { name, message, status, expose, data } = isHttpError(error)
-      ? error
-      : HttpError.from(error);
-    const json = {
-      name,
-      status,
-      ...data,
-    } as (HttpErrorOptions & T);
-    if (expose && message) {
-      json.message = message;
+  toJSON(): ProblemDetails<Extensions> {
+    const json: ProblemDetails<Extensions> = {
+      ...this.extensions,
+      status: this.status,
+      title: this.name,
+    };
+    if (this.expose && this.message) {
+      json.detail = this.message;
+    }
+    if (this.type) {
+      json.type = this.type;
+    }
+    if (this.instance) {
+      json.instance = this.instance;
     }
     return json;
+  }
+
+  /**
+   * Converts the HttpError to a Response object that matches the RFC 9457
+   * Problem Details for HTTP APIs specification. The body of the response will
+   * be a JSON string representing the ProblemDetails object.
+   *
+   * @returns A Response object suitable for returning from an HTTP handler, compliant with RFC 9457.
+   */
+  getResponse(): Response {
+    const options: ResponseInit = {
+      status: this.status,
+      headers: this.headers,
+    };
+    if (this.statusText) options.statusText = this.statusText;
+    return new Response(JSON.stringify(this.toJSON()), options);
   }
 }
 
 /**
  * This function can be used to determine if a value is an HttpError object. It
- * will also return true for Error objects that have status and expose properties
- * with matching types.
+ * will also return true for Error objects that have a `status` property of type number.
  *
  * ```ts
- * import { HttpError, isHttpError } from "@udibo/http-error";
+ * import { HttpError, isHttpErrorLike } from "@udibo/http-error";
  *
  * let error = new Error("file not found");
- * console.log(isHttpError(error)); // false
+ * console.log(isHttpErrorLike(error)); // false
  * error = new HttpError(404, "file not found");
- * console.log(isHttpError(error)); // true
+ * console.log(isHttpErrorLike(error)); // true
  * ```
  *
  * @param value - The value to check.
  * @returns True if the value is an HttpError.
  */
-export function isHttpError<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(value: unknown): value is HttpError<T> {
-  return !!value && typeof value === "object" &&
+function isHttpErrorLike<
+  Extensions extends object = Record<string, unknown>,
+>(value: unknown): value is HttpError<Extensions> | Error {
+  return typeof value === "object" && value !== null &&
     (value instanceof HttpError ||
       (value instanceof Error &&
         typeof (value as HttpError).status === "number"));
 }
 
 /**
- * A format for sharing errors with the browser.
- * With a consistent format for error responses,
- * the client can convert them back into an HttpErrors.
- */
-export interface ErrorResponse<
-  T extends Record<string, unknown> = Record<string, unknown>,
-> {
-  error: HttpErrorOptions & T;
-}
-
-/**
- * This class can be used to transform an HttpError into a JSON format that can be
- * converted back into an HttpError. This makes it easy for the server to share
- * HttpError's with the client. This will work with any value that is thrown.
+ * Creates a new class that extends HttpError, allowing for predefined default
+ * options and a specific default type for extensions.
  *
- * Here is an example of how an oak server could have middleware that converts an
- * error into into a JSON format.
+ * This factory is useful for creating custom HttpError types tailored to specific
+ * kinds of errors in an application, each with its own default status, name,
+ * or custom extension fields.
  *
+ * @example
  * ```ts
- * import { Application } from "@oak/oak/application";
- * import { ErrorResponse, HttpError } from "@udibo/http-error";
+ * // Define a type for default extensions
+ * interface MyApiErrorExtensions {
+ *   errorCode: string;
+ *   requestId?: string;
+ * }
  *
- * const app = new Application();
- *
- * app.use(async (context, next) => {
- *   try {
- *     await next();
- *   } catch (error) {
- *     const { response } = context;
- *     response.status = isHttpError(error) ? error.status : 500;
- *     response.body = new ErrorResponse(error);
- *   }
+ * // Create a custom error class with defaults
+ * const MyApiError = createHttpErrorClass<MyApiErrorExtensions>({
+ *   name: "MyApiError",
+ *   status: 452, // Custom default status
+ *   extensions: {
+ *     errorCode: "API_GENERAL_FAILURE", // Default extension value
+ *   },
  * });
  *
- * app.use(() => {
- *   // Will throw a 500 on every request.
- *   throw new HttpError(500);
- * });
- *
- * await app.listen({ port: 80 });
- * ```
- *
- * When `JSON.stringify` is used on the ErrorResponse object, the ErrorResponse
- * becomes a JSON representation of an HttpError.
- *
- * If the server were to have the following error in the next() function call from
- * that example, the response to the request would have it's status match the error
- * and the body be a JSON representation of the error.
- *
- * ```ts
- * import { HttpError } from "@udibo/http-error";
- *
- * throw new HttpError(400, "Invalid input");
- * ```
- *
- * Then the response would have a 400 status and it's body would look like this:
- *
- * ```json
- * {
- *   "error": {
- *     "name": "BadRequestError",
- *     "status": 400,
- *     "message": "Invalid input"
+ * // Usage of the custom error class
+ * try {
+ *   // Simulate an error condition
+ *   throw new MyApiError("A specific API operation failed.", {
+ *     extensions: {
+ *       errorCode: "API_OPERATION_X_FAILED", // Override default extension
+ *       requestId: "req-12345", // Add instance-specific extension
+ *     },
+ *   });
+ * } catch (e) {
+ *   if (e instanceof MyApiError) {
+ *     console.log(e.name);        // "MyApiError"
+ *     console.log(e.status);      // 452
+ *     console.log(e.message);     // "A specific API operation failed."
+ *     console.log(e.extensions.errorCode); // "API_OPERATION_X_FAILED"
+ *     console.log(e.extensions.requestId); // "req-12345"
+ *     // console.log(e.toJSON());
  *   }
  * }
+ *
+ * // Example with a different status code at instantiation
+ * const anotherError = new MyApiError(453, "Another failure");
+ * console.log(anotherError.status) // 453
+ * console.log(anotherError.extensions.errorCode) // "API_GENERAL_FAILURE"
  * ```
  *
- * @param T - The type of data associated with the error.
- * @param error - The error to convert.
- * @returns An ErrorResponse object.
+ * @typeparam DefaultExtensions The type for the default `extensions` object. Defaults to `Record<string, unknown>`.
+ * @param defaultOptionsForClass Optional default HttpErrorOptions to apply to the new error class.
+ * @returns A new class that extends `HttpError`.
  */
-export class ErrorResponse<
-  T extends Record<string, unknown> = Record<string, unknown>,
-> implements ErrorResponse<T> {
-  error: HttpErrorOptions & T;
+export function createHttpErrorClass<
+  DefaultExtensions extends object = Record<string, unknown>,
+>(
+  defaultOptionsForClass?: HttpErrorOptions<DefaultExtensions>,
+): {
+  new <Extensions extends DefaultExtensions = DefaultExtensions>(
+    status?: number,
+    message?: string,
+    options?: HttpErrorOptions<Extensions>,
+  ): HttpError<Extensions>;
+  new <Extensions extends DefaultExtensions = DefaultExtensions>(
+    status?: number,
+    options?: HttpErrorOptions<Extensions>,
+  ): HttpError<Extensions>;
+  new <Extensions extends DefaultExtensions = DefaultExtensions>(
+    message?: string,
+    options?: HttpErrorOptions<Extensions>,
+  ): HttpError<Extensions>;
+  new <Extensions extends DefaultExtensions = DefaultExtensions>(
+    options?: HttpErrorOptions<Extensions>,
+  ): HttpError<Extensions>;
+  prototype: HttpError<DefaultExtensions>;
+} {
+  return class CustomHttpError<
+    Extensions extends DefaultExtensions = DefaultExtensions,
+  > extends HttpError<Extensions> {
+    constructor(
+      status?: number,
+      message?: string,
+      options?: HttpErrorOptions<Extensions>,
+    );
+    constructor(status?: number, options?: HttpErrorOptions<Extensions>);
+    constructor(message?: string, options?: HttpErrorOptions<Extensions>);
+    constructor(options?: HttpErrorOptions<Extensions>);
+    constructor(
+      statusOrMessageOrOptions?: number | string | HttpErrorOptions<Extensions>,
+      messageOrOptions?: string | HttpErrorOptions<Extensions>,
+      optionsArgument?: HttpErrorOptions<Extensions>,
+    ) {
+      const constructorTimeOptions = optionsFromArgs<Extensions>(
+        statusOrMessageOrOptions,
+        messageOrOptions,
+        optionsArgument,
+      );
 
-  constructor(error: unknown) {
-    this.error = HttpError.json<T>(error);
-  }
+      const dfo = defaultOptionsForClass;
 
-  /**
-   * This function gives a client the ability to convert the error response into
-   * an HttpError.
-   *
-   * The easiest way to convert an error response into an HttpError is to directly
-   * pass the response to the `ErrorResponse.toError` function.
-   *
-   * In the following example, if getMovies is called and API endpoint returned an
-   * ErrorResponse, it would be converted into an HttpError object and be thrown.
-   *
-   * ```ts
-   * import { ErrorResponse, HttpError, isErrorResponse } from "@udibo/http-error";
-   *
-   * async function getMovies() {
-   *   const response = await fetch("https://example.com/movies.json");
-   *   if (!response.ok) throw await ErrorResponse.toError(response);
-   *   return await response.json();
-   * }
-   * ```
-   *
-   * This function also supports converting error response JSON into an HttpError.
-   * However, it is recommended to use the first approach in the previous example as
-   * it will produce an HttpError based on the status code in the case that the
-   * response doesn't have valid JSON.
-   *
-   * ```ts
-   * import { ErrorResponse, HttpError, isErrorResponse } from "@udibo/http-error";
-   *
-   * async function getMovies() {
-   *   const response = await fetch("https://example.com/movies.json");
-   *   const movies = await response.json();
-   *   if (isErrorResponse(movies)) throw ErrorResponse.toError(movies);
-   *   if (response.status >= 400) {
-   *     throw new HttpError(response.status, "Invalid response");
-   *   }
-   *   return movies;
-   * }
-   * ```
-   *
-   * If the request returned the following error response, it would be converted into
-   * an HttpError by the `ErrorResponse.toError(movies)` call.
-   *
-   * ```json
-   * {
-   *   "error": {
-   *     "name": "BadRequestError",
-   *     "status": 400,
-   *     "message": "Invalid input"
-   *   }
-   * }
-   * ```
-   *
-   * The error that `getMovies` would throw would be equivalent to throwing the
-   * following HttpError.
-   *
-   * @param response - The error response to convert.
-   * @returns An HttpError object.
-   */
-  static toError<
-    T extends Record<string, unknown> = Record<string, unknown>,
-  >(
-    response: ErrorResponse<T>,
-  ): HttpError<T>;
-  static toError<
-    T extends Record<string, unknown> = Record<string, unknown>,
-  >(
-    response: Response,
-  ): Promise<HttpError<T>>;
-  static toError<
-    T extends Record<string, unknown> = Record<string, unknown>,
-  >(
-    response: ErrorResponse<T> | Response,
-  ): HttpError<T> | Promise<HttpError<T>> {
-    if (isErrorResponse(response)) {
-      return new HttpError(response.error);
-    } else {
-      return response.json().then((json) => {
-        return isErrorResponse<T>(json)
-          ? new HttpError(response.status, json.error)
-          : new HttpError<T>(response.status, json.message);
-      }).catch(() => {
-        return new HttpError<T>(response.status);
-      });
+      const finalOptions: HttpErrorOptions<Extensions> = {};
+
+      finalOptions.status = constructorTimeOptions.status !== undefined
+        ? constructorTimeOptions.status
+        : dfo?.status;
+
+      finalOptions.message = constructorTimeOptions.message !== undefined
+        ? constructorTimeOptions.message
+        : dfo?.message;
+
+      finalOptions.name = constructorTimeOptions.name !== undefined
+        ? constructorTimeOptions.name
+        : dfo?.name;
+
+      finalOptions.expose = constructorTimeOptions.expose !== undefined
+        ? constructorTimeOptions.expose
+        : dfo?.expose;
+
+      finalOptions.cause = constructorTimeOptions.cause !== undefined
+        ? constructorTimeOptions.cause
+        : dfo?.cause;
+
+      finalOptions.type = constructorTimeOptions.type !== undefined
+        ? constructorTimeOptions.type
+        : dfo?.type;
+
+      finalOptions.instance = constructorTimeOptions.instance !== undefined
+        ? constructorTimeOptions.instance
+        : dfo?.instance;
+
+      finalOptions.headers = constructorTimeOptions.headers !== undefined
+        ? constructorTimeOptions.headers
+        : dfo?.headers;
+
+      finalOptions.statusText = constructorTimeOptions.statusText !== undefined
+        ? constructorTimeOptions.statusText
+        : dfo?.statusText;
+
+      finalOptions.extensions = {
+        ...(dfo?.extensions),
+        ...(constructorTimeOptions.extensions),
+      } as Extensions;
+
+      super(finalOptions);
     }
-  }
-}
-
-/**
- * This function gives you the ability to determine if an API's response body is in
- * the format of an ErrorResponse. It's useful for knowing when a response should
- * be converted into an HttpError.
-
- * In the following example, you can see that if the request's body is in the
- * format of an ErrorResponse, it will be converted into an HttpError and be
- * thrown. But if it isn't in that format and doesn't have an error status, the
- * response body will be returned as the assumed movies.
-
- * ```ts
- * import { HttpError, isErrorResponse } from "@udibo/http-error";
-
- * async function getMovies() {
- *   const response = await fetch("https://example.com/movies.json");
- *   const movies = await response.json();
- *   if (isErrorResponse(movies)) throw new ErrorResponse.toError(movies);
- *   if (response.status >= 400) {
- *     throw new HttpError(response.status, "Invalid response");
- *   }
- *   return movies;
- * }
- * ```
- */
-export function isErrorResponse<
-  T extends Record<string, unknown> = Record<string, unknown>,
->(response: unknown): response is ErrorResponse<T> {
-  return typeof response === "object" &&
-    typeof (response as ErrorResponse<T>)?.error === "object";
+  };
 }
