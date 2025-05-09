@@ -23,9 +23,10 @@ describe("hono error handling", () => {
 
     for await (const line of stdout.values({ preventCancel: true })) {
       if (line.includes("Listening on")) {
+        const address = Deno.build.os === "windows" ? "localhost" : "0.0.0.0";
         assertEquals(
           line,
-          "Listening on http://0.0.0.0:8000/ (http://localhost:8000/)",
+          `Listening on http://${address}:8000/ (http://localhost:8000/)`,
         );
         break;
       }
