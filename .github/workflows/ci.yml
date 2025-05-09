@@ -2,13 +2,12 @@ name: CI
 on: [push, pull_request]
 jobs:
   build:
-    name: test deno ${{ matrix.deno }} ${{ matrix.os }}
+    name: test deno v2.x ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        deno: [v2.x, canary]
       fail-fast: true
     steps:
       - name: Clone repository
@@ -16,7 +15,7 @@ jobs:
       - name: Setup deno
         uses: denoland/setup-deno@main
         with:
-          deno-version: ${{ matrix.deno }}
+          deno-version: v2.x
       - name: Check formatting
         if: matrix.os == 'ubuntu-latest'
         run: deno fmt --check
@@ -24,29 +23,20 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: deno lint
       - name: Run tests
-        run: deno test --coverage=cov
-      - name: Run tests unstable
-        run: deno test --unstable
-      - name: Generate lcov
-        if: |
-          matrix.os == 'ubuntu-latest' &&
-          matrix.deno == 'v2.x'
-        run: deno coverage --lcov cov > cov.lcov
+        run: deno test -A --coverage
       - name: Upload coverage
         if: |
-          matrix.os == 'ubuntu-latest' &&
-          matrix.deno == 'v2.x'
+          matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v4
         with:
           fail_ci_if_error: true
-          files: cov.lcov
+          files: coverage/lcov.info
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Release info
         if: |
           github.repository == 'udibo/http-error' &&
           matrix.os == 'ubuntu-latest' &&
-          matrix.deno == 'v2.x' &&
           startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
