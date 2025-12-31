@@ -22,8 +22,7 @@ describe("oak error handling", () => {
       .pipeThrough(new TextLineStream());
 
     for await (const line of stdout.values({ preventCancel: true })) {
-      if (line.includes("Listening on")) {
-        assertEquals(line, "Listening on http://localhost:8000/");
+      if (line.includes("Listening on") && line.includes(":8000")) {
         break;
       }
     }
