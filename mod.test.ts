@@ -11,6 +11,7 @@ import {
   createHttpErrorClass,
   HttpError,
   type HttpErrorOptions,
+  isHttpErrorLike,
 } from "./mod.ts";
 
 const httpErrorTests = describe("HttpError");
@@ -1216,3 +1217,17 @@ it(
     assertEquals(secretBody, secretJson);
   },
 );
+
+it("isHttpErrorLike", () => {
+  const httpError = new HttpError(400, "Bad Request");
+  assertEquals(isHttpErrorLike(httpError), true);
+  assertEquals(isHttpErrorLike(new Error("Bad Request")), false);
+  assertEquals(isHttpErrorLike({ status: 400, message: "Bad Request" }), false);
+  const error = new Error("Bad Request");
+  assertEquals(isHttpErrorLike(error), false);
+  (error as HttpError).status = 400;
+  assertEquals(isHttpErrorLike(error), true);
+  if (isHttpErrorLike(error)) {
+    assertEquals(error.status, 400);
+  }
+});
