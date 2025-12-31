@@ -22,8 +22,7 @@ describe("oak error handling", () => {
       .pipeThrough(new TextLineStream());
 
     for await (const line of stdout.values({ preventCancel: true })) {
-      if (line.includes("Listening on")) {
-        assertEquals(line, "Listening on http://localhost:8000/");
+      if (line.includes("Listening on") && line.includes(":8000")) {
         break;
       }
     }
@@ -40,7 +39,8 @@ describe("oak error handling", () => {
     assertEquals(res.headers.get("content-type"), "application/problem+json");
     assertEquals(await res.json(), {
       status: 500,
-      title: "InternalServerError",
+      title: "Internal Server Error",
+      detail: "The server encountered an unexpected condition.",
     });
   });
 
@@ -50,7 +50,7 @@ describe("oak error handling", () => {
     assertEquals(res.headers.get("content-type"), "application/problem+json");
     assertEquals(await res.json(), {
       status: 400,
-      title: "BadRequestError",
+      title: "Bad Request",
       detail: "This is an example of an error from oak",
     });
   });
@@ -61,7 +61,7 @@ describe("oak error handling", () => {
     assertEquals(res.headers.get("content-type"), "application/problem+json");
     assertEquals(await res.json(), {
       status: 400,
-      title: "BadRequestError",
+      title: "Bad Request",
       detail: "This is an example of an HttpError",
       type: "/errors/http-error",
       instance: "/errors/http-error/instance/123",
