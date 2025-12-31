@@ -44,7 +44,8 @@ describe("hono error handling", () => {
     assertEquals(res.headers.get("content-type"), "application/problem+json");
     assertEquals(await res.json(), {
       status: 500,
-      title: "InternalServerError",
+      title: "Internal Server Error",
+      detail: "The server encountered an unexpected condition.",
     });
   });
 
@@ -65,7 +66,7 @@ describe("hono error handling", () => {
     assertEquals(res.headers.get("content-type"), "application/problem+json");
     assertEquals(await res.json(), {
       status: 400,
-      title: "BadRequestError",
+      title: "Bad Request",
       detail: "This is an example of an HttpError",
       type: "/errors/http-error",
       instance: "/errors/http-error/instance/123",

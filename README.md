@@ -61,14 +61,14 @@ can override the default behavior by setting the `expose` property on the
 options argument.
 
 For all known HTTP error status codes, a `name` will be generated (e.g.,
-`NotFoundError` for 404). If the name is not known, it will default to
-`UnknownClientError` or `UnknownServerError`.
+`Not Found` for 404). If the name is not known, it will default to
+`Unknown Client Error` or `Unknown Server Error`.
 
 ```ts
 import { HttpError } from "@udibo/http-error";
 
 const error = new HttpError(404, "file not found");
-console.log(error.toString()); // NotFoundError: file not found
+console.log(error.toString()); // Not Found: file not found
 console.log(error.status); // 404
 console.log(error.expose); // true
 ```
@@ -141,8 +141,8 @@ console.log(httpErrorFromDetails.name); // ForbiddenAccess
 
 This method returns a plain JavaScript object representing the error in the RFC
 9457 Problem Details format. This is useful for serializing the error to a JSON
-response body. If `expose` is `false` (default for 5xx errors), the `detail`
-(message) property will be omitted.
+response body. The `detail` property is set to `exposedMessage`, which provides
+a safe message for clients (see `exposedMessage` section below).
 
 ```ts
 import { HttpError } from "@udibo/http-error";
@@ -159,18 +159,20 @@ console.log(problemDetails);
 // {
 //   field: "email",
 //   status: 400,
-//   title: "BadRequestError",
+//   title: "Bad Request",
 //   detail: "Invalid input",
 //   type: "/errors/validation",
 //   instance: "/form/user"
 // }
 
-const serverError = new HttpError(500, "Internal details", { expose: false });
+// For server errors (expose=false), detail uses a safe default message
+const serverError = new HttpError(500, "SQL syntax error near 'users'");
 console.log(serverError.toJSON());
-// Outputs (detail omitted):
+// Outputs:
 // {
 //   status: 500,
-//   title: "InternalServerError"
+//   title: "Internal Server Error",
+//   detail: "The server encountered an unexpected condition."
 // }
 ```
 
@@ -191,6 +193,78 @@ const response = error.getResponse();
 console.log(response.status); // 401
 console.log(response.headers.get("Content-Type")); // application/problem+json
 // response.body can be read to get the JSON string
+```
+
+#### `exposedMessage`
+
+The `exposedMessage` property provides a safe, user-friendly message that can be
+exposed to clients. This prevents internal error details (like SQL errors, file
+paths, or stack traces) from leaking to users.
+
+**How it works:**
+
+- If `exposedMessage` is explicitly provided in options, that value is used
+- If `expose` is `true` and `message` exists, `exposedMessage` defaults to
+  `message`
+- Otherwise, `exposedMessage` defaults to a generic message for the status code
+  (e.g., "The server encountered an unexpected condition." for 500)
+
+```ts
+import { HttpError } from "@udibo/http-error";
+
+// Client error (expose=true by default) - message is used as exposedMessage
+const clientError = new HttpError(400, "Invalid email format");
+console.log(clientError.exposedMessage); // "Invalid email format"
+
+// Server error (expose=false by default) - safe default is used
+const serverError = new HttpError(500, "Database connection refused");
+console.log(serverError.exposedMessage); // "The server encountered an unexpected condition."
+console.log(serverError.message); // "Database connection refused" (internal use only)
+
+// Custom exposedMessage - always takes priority
+const customError = new HttpError(500, "SQL syntax error", {
+  exposedMessage: "An error occurred while processing your request.",
+});
+console.log(customError.exposedMessage); // "An error occurred while processing your request."
+```
+
+### Server-Side Rendering Best Practices
+
+When rendering error messages in server-side templates or responses, always use
+`error.exposedMessage` instead of `error.message` to prevent leaking internal
+implementation details to users.
+
+**Why this matters:**
+
+- `error.message` may contain sensitive information (SQL errors, file paths,
+  stack traces)
+- `error.exposedMessage` provides a safe, user-friendly message by default
+- For server errors (5xx), the default `exposedMessage` is generic and safe
+- For client errors (4xx), `exposedMessage` defaults to `message` since those
+  are typically user-facing
+
+**Example in a template:**
+
+```ts
+// BAD - may expose internal details
+<p>Error: ${error.message}</p>  // "SQLSTATE[42S02]: Table 'users' doesn't exist"
+
+// GOOD - safe for users
+<p>Error: ${error.exposedMessage}</p>  // "The server encountered an unexpected condition."
+```
+
+**Example in error handling middleware:**
+
+```ts
+app.onError((cause, c) => {
+  const error = HttpError.from(cause);
+
+  // Log the full internal message for debugging
+  console.error(`[${error.status}] ${error.message}`, error.cause);
+
+  // Return safe message to client (via toJSON which uses exposedMessage)
+  return error.getResponse();
+});
 ```
 
 ### `createHttpErrorClass()`

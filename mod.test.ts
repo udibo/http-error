@@ -1,4 +1,4 @@
-import { STATUS_CODE, type StatusCode } from "@std/http/status";
+import { STATUS_TEXT, type StatusCode } from "@std/http/status";
 import {
   assert,
   assertEquals,
@@ -17,12 +17,16 @@ const httpErrorTests = describe("HttpError");
 
 it(httpErrorTests, "without args", () => {
   const error = new HttpError();
-  assertEquals(error.toString(), "InternalServerError");
-  assertEquals(error.name, "InternalServerError");
+  assertEquals(error.toString(), "Internal Server Error");
+  assertEquals(error.name, "Internal Server Error");
   assertEquals(error.message, "");
   assertEquals(error.status, 500);
   assertEquals(error.expose, false);
   assertEquals(error.cause, undefined);
+  assertEquals(
+    error.exposedMessage,
+    "The server encountered an unexpected condition.",
+  );
 });
 
 it(httpErrorTests, "with status", () => {
@@ -37,8 +41,16 @@ it(httpErrorTests, "with status", () => {
 
 it(httpErrorTests, "with message", () => {
   function assertWithMessage(error: HttpError): void {
-    assertEquals(error.toString(), "InternalServerError: something went wrong");
+    assertEquals(
+      error.toString(),
+      "Internal Server Error: something went wrong",
+    );
     assertEquals(error.message, "something went wrong");
+    // expose is false for 500 errors, so exposedMessage uses default
+    assertEquals(
+      error.exposedMessage,
+      "The server encountered an unexpected condition.",
+    );
   }
   assertWithMessage(new HttpError("something went wrong"));
   assertWithMessage(new HttpError({ message: "something went wrong" }));
@@ -52,7 +64,7 @@ it(
   httpErrorTests,
   "prefer status/message args over status/messagee options",
   () => {
-    const names = ["BadRequestError", "BadGatewayError"];
+    const names = ["Bad Request", "Bad Gateway"];
     const messages = ["something went wrong", "failed"];
     const statuses = [400, 502];
     const options = { message: messages[1], status: statuses[1] };
@@ -117,53 +129,11 @@ it(httpErrorTests, "invalid status", () => {
   );
 });
 
-const DEFAULT_ERROR_NAMES = new Map<StatusCode, string>(([
-  [STATUS_CODE.BadRequest, "BadRequest"],
-  [STATUS_CODE.Unauthorized, "Unauthorized"],
-  [STATUS_CODE.PaymentRequired, "PaymentRequired"],
-  [STATUS_CODE.Forbidden, "Forbidden"],
-  [STATUS_CODE.NotFound, "NotFound"],
-  [STATUS_CODE.MethodNotAllowed, "MethodNotAllowed"],
-  [STATUS_CODE.NotAcceptable, "NotAcceptable"],
-  [STATUS_CODE.ProxyAuthRequired, "ProxyAuthRequired"],
-  [STATUS_CODE.RequestTimeout, "RequestTimeout"],
-  [STATUS_CODE.Conflict, "Conflict"],
-  [STATUS_CODE.Gone, "Gone"],
-  [STATUS_CODE.LengthRequired, "LengthRequired"],
-  [STATUS_CODE.PreconditionFailed, "PreconditionFailed"],
-  [STATUS_CODE.ContentTooLarge, "ContentTooLarge"],
-  [STATUS_CODE.URITooLong, "URITooLong"],
-  [STATUS_CODE.UnsupportedMediaType, "UnsupportedMediaType"],
-  [STATUS_CODE.RangeNotSatisfiable, "RangeNotSatisfiable"],
-  [STATUS_CODE.ExpectationFailed, "ExpectationFailed"],
-  [STATUS_CODE.Teapot, "Teapot"],
-  [STATUS_CODE.MisdirectedRequest, "MisdirectedRequest"],
-  [STATUS_CODE.UnprocessableEntity, "UnprocessableEntity"],
-  [STATUS_CODE.Locked, "Locked"],
-  [STATUS_CODE.FailedDependency, "FailedDependency"],
-  [STATUS_CODE.TooEarly, "TooEarly"],
-  [STATUS_CODE.UpgradeRequired, "UpgradeRequired"],
-  [STATUS_CODE.PreconditionRequired, "PreconditionRequired"],
-  [STATUS_CODE.TooManyRequests, "TooManyRequests"],
-  [STATUS_CODE.RequestHeaderFieldsTooLarge, "RequestHeaderFieldsTooLarge"],
-  [STATUS_CODE.UnavailableForLegalReasons, "UnavailableForLegalReasons"],
-  [STATUS_CODE.InternalServerError, "InternalServer"],
-  [STATUS_CODE.NotImplemented, "NotImplemented"],
-  [STATUS_CODE.BadGateway, "BadGateway"],
-  [STATUS_CODE.ServiceUnavailable, "ServiceUnavailable"],
-  [STATUS_CODE.GatewayTimeout, "GatewayTimeout"],
-  [STATUS_CODE.HTTPVersionNotSupported, "HTTPVersionNotSupported"],
-  [STATUS_CODE.VariantAlsoNegotiates, "VariantAlsoNegotiates"],
-  [STATUS_CODE.InsufficientStorage, "InsufficientStorage"],
-  [STATUS_CODE.LoopDetected, "LoopDetected"],
-  [STATUS_CODE.NotExtended, "NotExtended"],
-  [STATUS_CODE.NetworkAuthenticationRequired, "NetworkAuthenticationRequired"],
-] as [StatusCode, string][]).map(([status, name]) => [status, `${name}Error`]));
-
 function expectedDefaultErrorName(status: number): string {
-  return DEFAULT_ERROR_NAMES.has(status as StatusCode)
-    ? DEFAULT_ERROR_NAMES.get(status as StatusCode)!
-    : `Unknown${status < 500 ? "Client" : "Server"}Error`;
+  if (STATUS_TEXT[status as StatusCode]) {
+    return STATUS_TEXT[status as StatusCode];
+  }
+  return status < 500 ? "Unknown Client Error" : "Unknown Server Error";
 }
 
 function assertName(
@@ -513,8 +483,9 @@ it(jsonTests, "HttpError.from(Error).toJSON()", () => {
   assertEquals(
     errorFromCause.toJSON(),
     {
-      title: "InternalServerError",
+      title: "Internal Server Error",
       status: 500,
+      detail: "The server encountered an unexpected condition.",
     },
   );
 });
@@ -560,6 +531,7 @@ it(jsonTests, "Non-exposed server error with extensions toJSON()", () => {
       ...data,
       title: "CustomError",
       status: 500,
+      detail: "The server encountered an unexpected condition.",
     },
   );
 });
@@ -586,10 +558,46 @@ it(
         ...data,
         title: "CustomError",
         status: 400,
+        detail: "The server cannot process the request due to a client error.",
       },
     );
   },
 );
+
+it(jsonTests, "exposedMessage with expose=true uses message", () => {
+  const error = new HttpError(400, "Invalid email format");
+  assertEquals(error.message, "Invalid email format");
+  assertEquals(error.exposedMessage, "Invalid email format");
+  assertEquals(error.toJSON().detail, "Invalid email format");
+});
+
+it(jsonTests, "exposedMessage with expose=false uses default", () => {
+  const error = new HttpError(500, "SQL syntax error near 'DROP TABLE'");
+  assertEquals(
+    error.exposedMessage,
+    "The server encountered an unexpected condition.",
+  );
+  assertEquals(
+    error.toJSON().detail,
+    "The server encountered an unexpected condition.",
+  );
+});
+
+it(jsonTests, "explicit exposedMessage takes priority", () => {
+  // Even with expose=true, explicit exposedMessage is used
+  const error1 = new HttpError(400, "Internal validation details", {
+    exposedMessage: "Please check your input.",
+  });
+  assertEquals(error1.exposedMessage, "Please check your input.");
+  assertEquals(error1.toJSON().detail, "Please check your input.");
+
+  // With expose=false, explicit exposedMessage is also used
+  const error2 = new HttpError(500, "Database connection refused", {
+    exposedMessage: "Service temporarily unavailable.",
+  });
+  assertEquals(error2.exposedMessage, "Service temporarily unavailable.");
+  assertEquals(error2.toJSON().detail, "Service temporarily unavailable.");
+});
 
 const getResponseTests = describe(httpErrorTests, "getResponse");
 
@@ -652,6 +660,7 @@ it(
       ...error2Extensions,
       status: 503,
       title: "CustomServerErr",
+      detail: "The server is currently unavailable.",
     });
   },
 );
@@ -669,7 +678,7 @@ it(
     const body3 = await response3.json();
     assertEquals(body3, {
       status: 404,
-      title: "NotFoundError",
+      title: "Not Found",
       detail: "Not Found",
     });
   },
@@ -680,12 +689,16 @@ const fromTests = describe(httpErrorTests, "from");
 it(fromTests, "non HttpError", () => {
   const cause = new Error("fail");
   const error = HttpError.from(cause);
-  assertEquals(error.toString(), "InternalServerError: fail");
-  assertEquals(error.name, "InternalServerError");
+  assertEquals(error.toString(), "Internal Server Error: fail");
+  assertEquals(error.name, "Internal Server Error");
   assertEquals(error.message, "fail");
   assertEquals(error.status, 500);
   assertEquals(error.expose, false);
   assertEquals(error.cause, cause);
+  assertEquals(
+    error.exposedMessage,
+    "The server encountered an unexpected condition.",
+  );
 });
 
 it(fromTests, "Error with status", () => {
@@ -876,12 +889,12 @@ it(
     assert(error instanceof BasicError, "Should be instance of BasicError");
     assertEquals(error.status, 400);
     assertEquals(error.message, "test message");
-    assertEquals(error.name, "BadRequestError");
+    assertEquals(error.name, "Bad Request");
 
     const error2 = new BasicError();
     assertEquals(error2.status, 500);
     assertEquals(error2.message, "");
-    assertEquals(error2.name, "InternalServerError");
+    assertEquals(error2.name, "Internal Server Error");
   },
 );
 
@@ -1194,9 +1207,9 @@ it(
     assertEquals(secretJson, {
       status: 500,
       title: "SecretError",
+      detail: "The server encountered an unexpected condition.",
       ...secretError.extensions,
     });
-    assertEquals(secretJson.detail, undefined);
 
     const secretResponse = secretError.getResponse();
     const secretBody = await secretResponse.json();

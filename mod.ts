@@ -1,5 +1,63 @@
 import { STATUS_CODE, STATUS_TEXT, type StatusCode } from "@std/http/status";
 
+/**
+ * Default user-friendly messages for HTTP error status codes.
+ * These are only used when expose is false and no exposedMessage was explicitly set.
+ */
+const DEFAULT_EXPOSED_MESSAGES: Partial<Record<number, string>> = {
+  // 4xx Client Errors
+  400: "The server cannot process the request due to a client error.",
+  401: "Authentication is required to access this resource.",
+  402: "Payment is required to access this resource.",
+  403: "You do not have permission to access this resource.",
+  404: "The requested resource could not be found.",
+  405: "The request method is not supported for this resource.",
+  406: "The server cannot produce a response matching the acceptable values.",
+  407: "Proxy authentication is required.",
+  408: "The server timed out waiting for the request.",
+  409: "The request conflicts with the current state of the resource.",
+  410: "The requested resource is no longer available.",
+  411: "The request requires a Content-Length header.",
+  412: "A precondition in the request headers was not met.",
+  413: "The request body is larger than the server is willing to process.",
+  414: "The request URI is longer than the server is willing to process.",
+  415: "The request uses a media type that is not supported.",
+  416: "The requested range cannot be satisfied.",
+  417: "The expectation in the Expect header cannot be met.",
+  418: "The server refuses to brew coffee because it is a teapot.",
+  421: "The request was directed at a server unable to produce a response.",
+  422: "The request was well-formed but contained semantic errors.",
+  423: "The requested resource is locked.",
+  424: "The request failed due to a previous request failure.",
+  425: "The server is unwilling to process a request that might be replayed.",
+  426: "The client must upgrade to a different protocol.",
+  428: "The request must be conditional.",
+  429: "Too many requests have been sent in a given amount of time.",
+  431: "The request headers are too large.",
+  451: "The resource is unavailable for legal reasons.",
+  // 5xx Server Errors
+  500: "The server encountered an unexpected condition.",
+  501: "The server does not support the functionality required.",
+  502: "The server received an invalid response from an upstream server.",
+  503: "The server is currently unavailable.",
+  504: "The server did not receive a timely response from an upstream server.",
+  505: "The HTTP version used in the request is not supported.",
+  506: "The server has an internal configuration error.",
+  507: "The server has insufficient storage to complete the request.",
+  508: "The server detected an infinite loop while processing the request.",
+  510: "Further extensions to the request are required.",
+  511: "Network authentication is required to access this resource.",
+};
+
+/**
+ * Gets the default exposed message for a given HTTP error status code.
+ * Falls back to generic client/server error messages for unknown status codes.
+ */
+function defaultExposedMessageForStatus(status: number): string {
+  return DEFAULT_EXPOSED_MESSAGES[status] ??
+    (status < 500 ? "A client error occurred." : "A server error occurred.");
+}
+
 /** Options for initializing an HttpError. */
 export interface HttpErrorOptions<
   Extensions extends object = Record<string, unknown>,
@@ -37,6 +95,14 @@ export interface HttpErrorOptions<
    * The headers to send in the response. The content-type will default to application/problem+json unless otherwise specified in the headers.
    */
   headers?: Headers | Record<string, string>;
+  /**
+   * The message to expose in the response. This is used in toJSON() as the `detail` field.
+   * If not provided:
+   * - When expose is true and message exists, exposedMessage defaults to message
+   * - Otherwise, exposedMessage defaults to a generic message for the status code
+   * This allows you to have detailed internal error messages while showing safe, user-friendly messages to clients.
+   */
+  exposedMessage?: string;
 }
 
 interface ProblemDetailsBase {
@@ -137,17 +203,32 @@ function optionsFromArgs<
   return { ...init, status, message } as HttpErrorOptions<Extensions>;
 }
 
+/**
+ * Gets the human-readable name for a given HTTP error status code.
+ * Returns names with spaces (e.g., "Bad Request", "Not Found").
+ */
 function errorNameForStatus(status: number): string {
-  let name: string;
   if (STATUS_TEXT[status as StatusCode]) {
-    name = status === STATUS_CODE.Teapot
-      ? "Teapot"
-      : STATUS_TEXT[status as StatusCode].replace(/\W/g, "");
-    if (status !== STATUS_CODE.InternalServerError) name += "Error";
-  } else {
-    name = `Unknown${status < 500 ? "Client" : "Server"}Error`;
+    return STATUS_TEXT[status as StatusCode];
   }
-  return name;
+  return status < 500 ? "Unknown Client Error" : "Unknown Server Error";
+}
+
+/**
+ * Checks if a name matches the old error name format for a given status.
+ * The old format was "{StatusText}Error" (e.g., "BadRequestError" for 400).
+ * This is used to convert old-format names to the new human-readable format
+ * when processing errors from other frameworks.
+ */
+function matchesOldNameFormat(
+  name: string | undefined,
+  status: number,
+): boolean {
+  if (!name) return false;
+  const statusText = STATUS_TEXT[status as StatusCode];
+  if (!statusText) return false;
+  const oldFormat = statusText.replace(/\W/g, "") + "Error";
+  return name === oldFormat;
 }
 
 /**
@@ -313,6 +394,15 @@ export class HttpError<
    * The headers to send in the response. The content-type will default to application/problem+json unless otherwise specified in the headers.
    */
   headers: Headers;
+  /**
+   * The message to expose in the response. Used as the `detail` field in toJSON().
+   * - If explicitly set in options, that value is used
+   * - If expose is true and message exists, defaults to message
+   * - Otherwise, defaults to a generic message for the status code
+   *
+   * Use this instead of `message` when rendering errors to prevent leaking internal details.
+   */
+  exposedMessage: string;
 
   constructor(
     status?: number,
@@ -343,6 +433,7 @@ export class HttpError<
       instance,
       extensions,
       headers,
+      exposedMessage,
     } = init;
     const status = init.status ?? STATUS_CODE.InternalServerError;
 
@@ -372,6 +463,14 @@ export class HttpError<
     if (!this.headers.has("content-type")) {
       this.headers.set("content-type", "application/problem+json");
     }
+    // Compute exposedMessage with precedence:
+    // 1. Explicitly provided exposedMessage option
+    // 2. If expose=true and message exists, use message
+    // 3. Default message for status code
+    this.exposedMessage = exposedMessage ??
+      (this.expose && this.message
+        ? this.message
+        : defaultExposedMessageForStatus(status));
   }
 
   /**
@@ -424,7 +523,7 @@ export class HttpError<
       return error;
     } else if (isHttpErrorLike(error)) {
       const {
-        name,
+        name: originalName,
         message,
         status,
         expose,
@@ -433,7 +532,12 @@ export class HttpError<
         instance,
         extensions,
         headers,
+        exposedMessage,
       } = error as HttpError<Extensions>;
+      // Use new format if name matches old format, otherwise preserve custom name
+      const name = matchesOldNameFormat(originalName, status)
+        ? undefined
+        : originalName;
       const options = {
         name,
         message,
@@ -443,6 +547,7 @@ export class HttpError<
         type,
         instance,
         extensions,
+        exposedMessage,
         headers,
       } as HttpErrorOptions<Extensions>;
       return new HttpError<Extensions>(options);
@@ -510,10 +615,8 @@ export class HttpError<
       ...this.extensions,
       status: this.status,
       title: this.name,
+      detail: this.exposedMessage,
     };
-    if (this.expose && this.message) {
-      json.detail = this.message;
-    }
     if (this.type) {
       json.type = this.type;
     }
@@ -541,22 +644,38 @@ export class HttpError<
 }
 
 /**
- * This function can be used to determine if a value is an HttpError object. It
- * will also return true for Error objects that have a `status` property of type number.
+ * Checks if a value is HttpError-like (an Error with a numeric status property).
+ *
+ * This function returns true for any Error object that has a numeric `status` property,
+ * not just HttpError instances. This allows it to recognize HTTP errors from other
+ * libraries or custom error classes that follow the same pattern.
+ *
+ * If you need to verify that an error is specifically an HttpError instance
+ * (not just similar to one), use `error instanceof HttpError` instead.
  *
  * ```ts
  * import { HttpError, isHttpErrorLike } from "@udibo/http-error";
  *
  * let error = new Error("file not found");
  * console.log(isHttpErrorLike(error)); // false
+ *
  * error = new HttpError(404, "file not found");
  * console.log(isHttpErrorLike(error)); // true
+ * console.log(error instanceof HttpError); // true
+ *
+ * // Custom error class with status property
+ * class CustomHttpError extends Error {
+ *   status = 400;
+ * }
+ * const customError = new CustomHttpError("bad request");
+ * console.log(isHttpErrorLike(customError)); // true
+ * console.log(customError instanceof HttpError); // false
  * ```
  *
  * @param value - The value to check.
- * @returns True if the value is an HttpError.
+ * @returns True if the value is an HttpError or an Error with a numeric status property.
  */
-function isHttpErrorLike<
+export function isHttpErrorLike<
   Extensions extends object = Record<string, unknown>,
 >(value: unknown): value is HttpError<Extensions> | Error {
   return typeof value === "object" && value !== null &&
@@ -704,6 +823,11 @@ export function createHttpErrorClass<
       finalOptions.statusText = constructorTimeOptions.statusText !== undefined
         ? constructorTimeOptions.statusText
         : dfo?.statusText;
+
+      finalOptions.exposedMessage =
+        constructorTimeOptions.exposedMessage !== undefined
+          ? constructorTimeOptions.exposedMessage
+          : dfo?.exposedMessage;
 
       finalOptions.extensions = {
         ...(dfo?.extensions),
