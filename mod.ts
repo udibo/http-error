@@ -677,7 +677,9 @@ export class HttpError<
  */
 export function isHttpErrorLike<
   Extensions extends object = Record<string, unknown>,
->(value: unknown): value is HttpError<Extensions> | Error {
+>(
+  value: unknown,
+): value is HttpError<Extensions> | (Error & { status: number }) {
   return typeof value === "object" && value !== null &&
     (value instanceof HttpError ||
       (value instanceof Error &&
