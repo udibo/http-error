@@ -1,65 +1,44 @@
-import { afterAll, beforeAll, describe, it } from "@std/testing/bdd";
-import { assertEquals } from "@std/assert";
-import { resolve } from "@std/path";
-import { mergeReadableStreams, TextLineStream } from "@std/streams";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { app } from "./hono.ts";
 
 describe("hono error handling", () => {
-  let server: Deno.ChildProcess;
-
-  beforeAll(async () => {
-    const command = new Deno.Command(Deno.execPath(), {
-      args: [
-        "run",
-        "-A",
-        resolve(import.meta.dirname!, "./hono.ts"),
-      ],
-      stdout: "piped",
-      stderr: "piped",
-    });
-    server = command.spawn();
-    const stdout = mergeReadableStreams(server.stdout, server.stderr)
-      .pipeThrough(new TextDecoderStream())
-      .pipeThrough(new TextLineStream());
-
-    for await (const line of stdout.values({ preventCancel: true })) {
-      if (line.includes("Listening on") && line.includes(":8000")) {
-        break;
-      }
-    }
+  beforeEach(() => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  afterAll(async () => {
-    server.kill();
-    await server.status;
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it("plain error converted to http error response", async () => {
-    const res = await fetch("http://localhost:8000/error");
-    assertEquals(res.status, 500);
-    assertEquals(res.headers.get("content-type"), "application/problem+json");
-    assertEquals(await res.json(), {
+  it("converts a plain error to a problem details response", async () => {
+    const res = await app.request("/error");
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).toBe("application/problem+json");
+    expect(await res.json()).toEqual({
       status: 500,
       title: "Internal Server Error",
       detail: "The server encountered an unexpected condition.",
     });
   });
 
-  it("hono HttpException converted to http error response", async () => {
-    const res = await fetch("http://localhost:8000/hono-error");
-    assertEquals(res.status, 400);
-    assertEquals(res.headers.get("content-type"), "application/problem+json");
-    assertEquals(await res.json(), {
+  it("converts a Hono HTTPException to a problem details response", async () => {
+    const res = await app.request("/hono-error");
+    expect(res.status).toBe(400);
+    expect(res.headers.get("content-type")).toBe("application/problem+json");
+    expect(await res.json()).toEqual({
       status: 400,
       title: "Error",
       detail: "This is an example of an error from hono",
     });
   });
 
-  it("http error response", async () => {
-    const res = await fetch("http://localhost:8000/http-error");
-    assertEquals(res.status, 400);
-    assertEquals(res.headers.get("content-type"), "application/problem+json");
-    assertEquals(await res.json(), {
+  it("returns an HttpError as a problem details response with its extensions", async () => {
+    const res = await app.request("/http-error");
+    expect(res.status).toBe(400);
+    expect(res.headers.get("content-type")).toBe("application/problem+json");
+    expect(await res.json()).toEqual({
       status: 400,
       title: "Bad Request",
       detail: "This is an example of an HttpError",
@@ -67,5 +46,11 @@ describe("hono error handling", () => {
       instance: "/errors/http-error/instance/123",
       customField: "customValue",
     });
+  });
+
+  it("logs the converted error and the request", async () => {
+    await app.request("/http-error");
+    expect(console.log).toHaveBeenCalledWith("GET", "/http-error");
+    expect(console.error).toHaveBeenCalledOnce();
   });
 });

@@ -1,0 +1,9 @@
+{
+  "name": "@udibo/http-error",
+  "version": "0.11.1",
+  "exports": "./src/mod.ts",
+  "publish": {
+    "include": ["src/**/*.ts", "README.md", "LICENSE"],
+    "exclude": ["src/**/*.test.ts"]
+  }
+}

@@ -1,5 +1,6 @@
 # Http Error
 
+[![npm](https://img.shields.io/npm/v/@udibo/http-error)](https://www.npmjs.com/package/@udibo/http-error)
 [![JSR](https://jsr.io/badges/@udibo/http-error)](https://jsr.io/@udibo/http-error)
 [![JSR Score](https://jsr.io/badges/@udibo/http-error/score)](https://jsr.io/@udibo/http-error)
 [![CI](https://github.com/udibo/http-error/workflows/CI/badge.svg)](https://github.com/udibo/http-error/actions?query=workflow%3ACI)
@@ -15,6 +16,68 @@ This package was inspired by
 
 - Framework agnostic
 - RFC 9457 Problem Details compliant error responses
+- Zero runtime dependencies
+- Written in TypeScript and published as ESM with type declarations
+
+## Installation
+
+The package is published to [npm](https://www.npmjs.com/package/@udibo/http-error)
+and [JSR](https://jsr.io/@udibo/http-error). It requires Node.js 22 or later,
+and also works in browsers and other runtimes that provide the standard
+`Headers` and `Response` classes.
+
+```sh
+# npm
+npm install @udibo/http-error
+
+# pnpm
+pnpm add @udibo/http-error
+
+# pnpm, from JSR (pnpm 10.9 or later)
+pnpm add jsr:@udibo/http-error
+
+# npm, from JSR
+npx jsr add @udibo/http-error
+```
+
+The package is ESM only. Import it from an ES module (or a TypeScript project
+using `"module": "NodeNext"`, `"Bundler"`, or another ESM-aware setting):
+
+```ts
+import { HttpError } from "@udibo/http-error";
+```
+
+### Node.js
+
+Use it in any Node.js ES module. `HttpError` extends `Error`, so it works with
+`throw`, `try`/`catch`, and `error.cause` like any other error.
+
+```ts
+import { HttpError } from "@udibo/http-error";
+
+try {
+  throw new HttpError(404, "file not found");
+} catch (error) {
+  const httpError = HttpError.from(error);
+  console.log(httpError.status); // 404
+  console.log(JSON.stringify(httpError)); // {"status":404,"title":"Not Found","detail":"file not found"}
+}
+```
+
+### Browsers
+
+The package does not import any Node.js modules, so it can be bundled for
+browsers (Vite, esbuild, webpack, and similar) or loaded directly as a module.
+It is useful on the client for turning a failed `fetch` response into an error:
+
+```ts
+import { HttpError } from "@udibo/http-error";
+
+const response = await fetch("/api/items/1");
+if (!response.ok) {
+  throw await HttpError.from(response);
+}
+```
 
 ## Usage
 
@@ -80,10 +143,7 @@ name in the options.
 import { HttpError, type HttpErrorOptions } from "@udibo/http-error";
 
 class CustomError extends HttpError {
-  constructor(
-    message?: string,
-    options?: HttpErrorOptions,
-  ) {
+  constructor(message?: string, options?: HttpErrorOptions) {
     super(message, { name: "CustomError", status: 420, ...options });
   }
 }
@@ -318,11 +378,14 @@ console.log(anotherError.extensions.errorCode); // "API_GENERAL_FAILURE" (from d
 #### Hono
 
 Here's an example of how to use `HttpError` with Hono, utilizing its
-`app.onError` handler to return Problem Details JSON responses.
+`app.onError` handler to return Problem Details JSON responses. It is also
+available as [`examples/hono.ts`](examples/hono.ts), with tests in
+[`examples/hono.test.ts`](examples/hono.test.ts) that call the app with
+`app.request()`.
 
 ```ts
 import { Hono } from "hono";
-import { HTTPException } from "hono/http-exception"; // For comparison
+import { HTTPException } from "hono/http-exception";
 import { HttpError } from "@udibo/http-error";
 
 const app = new Hono();
@@ -332,7 +395,6 @@ app.get("/error", () => {
 });
 
 app.get("/hono-error", () => {
-  // Hono's native error, for comparison
   throw new HTTPException(400, {
     message: "This is an example of an error from hono",
   });
@@ -348,77 +410,26 @@ app.get("/http-error", () => {
   });
 });
 
-// Global error handler
-app.onError(async (cause, c) => { // c is Hono's context
-  console.log("Hono onError caught:", cause);
-
+app.onError((cause) => {
   // Converts non-HttpError instances to HttpError instances
-  // For Response objects (e.g. from fetch), HttpError.from is async
-  const error = cause instanceof Response
-    ? await HttpError.from(cause)
-    : HttpError.from(cause);
+  const error = HttpError.from(cause);
 
-  console.error(error); // Log the full HttpError
+  // Log the full internal error, including the cause
+  console.error(error);
 
-  return error.getResponse(); // Return a Response object directly
+  // The response body only contains the safe `exposedMessage`
+  return error.getResponse();
 });
 
-console.log("Hono server running on http://localhost:8000");
-Deno.serve(app.fetch);
+export default app;
 ```
 
-#### Oak
-
-Here is an example of how an Oak server could have middleware that converts any
-thrown error into an `HttpError` and returns a Problem Details JSON response.
+To run it on Node.js, serve the app with
+[`@hono/node-server`](https://github.com/honojs/node-server):
 
 ```ts
-import { Application, Router } from "@oak/oak";
-import { HttpError } from "@udibo/http-error";
+import { serve } from "@hono/node-server";
+import app from "./app.ts";
 
-const app = new Application();
-
-// Error handling middleware
-app.use(async (context, next) => {
-  try {
-    await next();
-  } catch (cause) {
-    // Converts non-HttpError instances to HttpError instances
-    // For Response objects (e.g. from fetch), HttpError.from is async
-    const error = cause instanceof Response
-      ? await HttpError.from(cause)
-      : HttpError.from(cause);
-
-    console.error(error); // Log the full error
-
-    const { response } = context;
-    response.status = error.status;
-    error.headers.forEach((value, key) => { // Set custom headers from HttpError
-      response.headers.set(key, value);
-    });
-    // Set Content-Type if not already set by error.headers
-    if (!response.headers.has("Content-Type")) {
-      response.headers.set("Content-Type", "application/problem+json");
-    }
-    response.body = error.toJSON(); // Send Problem Details as JSON
-  }
-});
-
-const router = new Router();
-router.get("/test-error", () => {
-  // Will be caught and transformed by the middleware
-  throw new Error("A generic error occurred!");
-});
-router.get("/test-http-error", () => {
-  throw new HttpError(400, "This is a specific HttpError.", {
-    type: "/errors/my-custom-error",
-    extensions: { info: "some detail" },
-  });
-});
-
-app.use(router.routes());
-app.use(router.allowedMethods());
-
-console.log("Oak server running on http://localhost:8000");
-await app.listen({ port: 8000 });
+serve({ fetch: app.fetch, port: 8000 });
 ```
