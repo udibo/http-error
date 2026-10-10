@@ -1,6 +1,6 @@
 {
   "name": "@udibo/http-error",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "description": "Utilities for creating and working with HTTP errors that produce RFC 9457 Problem Details responses.",
   "keywords": [
     "error",
