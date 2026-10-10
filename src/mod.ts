@@ -1,4 +1,4 @@
-import { STATUS_CODE, STATUS_TEXT, type StatusCode } from "@std/http/status";
+import { STATUS_CODE, STATUS_TEXT, type StatusCode } from "./status.ts";
 
 /**
  * Default user-friendly messages for HTTP error status codes.
@@ -54,8 +54,10 @@ const DEFAULT_EXPOSED_MESSAGES: Partial<Record<number, string>> = {
  * Falls back to generic client/server error messages for unknown status codes.
  */
 function defaultExposedMessageForStatus(status: number): string {
-  return DEFAULT_EXPOSED_MESSAGES[status] ??
-    (status < 500 ? "A client error occurred." : "A server error occurred.");
+  return (
+    DEFAULT_EXPOSED_MESSAGES[status] ??
+    (status < 500 ? "A client error occurred." : "A server error occurred.")
+  );
 }
 
 /** Options for initializing an HttpError. */
@@ -117,13 +119,13 @@ export type ProblemDetails<
   Extensions extends object = Record<string, unknown>,
 > = ProblemDetailsBase & Extensions;
 
-function isProblemDetails<
-  Extensions extends object = Record<string, unknown>,
->(value: unknown): value is ProblemDetails<Extensions> {
-  return typeof value === "object" && value !== null && (
-    "status" in value ||
-    "title" in value ||
-    "type" in value
+function isProblemDetails<Extensions extends object = Record<string, unknown>>(
+  value: unknown,
+): value is ProblemDetails<Extensions> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ("status" in value || "title" in value || "type" in value)
   );
 }
 
@@ -169,11 +171,9 @@ function isProblemDetails<
  * @param options - The options.
  * @returns The options object.
  */
-function optionsFromArgs<
-  Extensions extends object = Record<string, unknown>,
->(
-  statusOrMessageOrOptions?: number | string | (HttpErrorOptions<Extensions>),
-  messageOrOptions?: string | (HttpErrorOptions<Extensions>),
+function optionsFromArgs<Extensions extends object = Record<string, unknown>>(
+  statusOrMessageOrOptions?: number | string | HttpErrorOptions<Extensions>,
+  messageOrOptions?: string | HttpErrorOptions<Extensions>,
   options?: HttpErrorOptions<Extensions>,
 ): HttpErrorOptions<Extensions> {
   let status: number | undefined = undefined;
@@ -200,7 +200,7 @@ function optionsFromArgs<
     message = init?.message;
   }
 
-  return { ...init, status, message } as HttpErrorOptions<Extensions>;
+  return { ...init, status, message };
 }
 
 /**
@@ -455,11 +455,10 @@ export class HttpError<
     if (statusText) this.statusText = statusText;
     if (type) this.type = type;
     if (instance) this.instance = instance;
-    this.expose = expose ?? (status < 500);
-    this.extensions = extensions ?? {} as Extensions;
-    this.headers = headers instanceof Headers
-      ? headers
-      : new Headers(headers ?? {});
+    this.expose = expose ?? status < 500;
+    this.extensions = extensions ?? ({} as Extensions);
+    this.headers =
+      headers instanceof Headers ? headers : new Headers(headers ?? {});
     if (!this.headers.has("content-type")) {
       this.headers.set("content-type", "application/problem+json");
     }
@@ -467,7 +466,8 @@ export class HttpError<
     // 1. Explicitly provided exposedMessage option
     // 2. If expose=true and message exists, use message
     // 3. Default message for status code
-    this.exposedMessage = exposedMessage ??
+    this.exposedMessage =
+      exposedMessage ??
       (this.expose && this.message
         ? this.message
         : defaultExposedMessageForStatus(status));
@@ -491,33 +491,18 @@ export class HttpError<
    * @param error - The error to convert.
    * @returns An HttpError object.
    */
-  static from<
-    Extensions extends object = Record<string, unknown>,
-  >(
+  static from<Extensions extends object = Record<string, unknown>>(
     error: HttpError<Extensions> | ProblemDetails<Extensions>,
   ): HttpError<Extensions>;
-  static from<
-    Extensions extends object = Record<string, unknown>,
-  >(
+  static from<Extensions extends object = Record<string, unknown>>(
     error: Response,
   ): Promise<HttpError<Extensions>>;
-  static from(
-    error: Error,
-  ): HttpError;
-  static from<
-    Extensions extends object = Record<string, unknown>,
-  >(
+  static from(error: Error): HttpError;
+  static from<Extensions extends object = Record<string, unknown>>(
     error: unknown,
   ): HttpError<Extensions>;
-  static from<
-    Extensions extends object = Record<string, unknown>,
-  >(
-    error:
-      | HttpError<Extensions>
-      | Error
-      | ProblemDetails<Extensions>
-      | Response
-      | unknown,
+  static from<Extensions extends object = Record<string, unknown>>(
+    error: unknown,
   ): HttpError<Extensions> | Promise<HttpError<Extensions>> {
     if (error instanceof HttpError) {
       return error;
@@ -556,7 +541,8 @@ export class HttpError<
         cause: error,
       }) as unknown as HttpError<Extensions>;
     } else if (error instanceof Response) {
-      return error.json()
+      return error
+        .json()
         .then((json: unknown) => {
           if (!isProblemDetails<Extensions>(json)) {
             return new HttpError<Extensions>(
@@ -582,7 +568,9 @@ export class HttpError<
           return new HttpError<Extensions>(
             500,
             "could not parse problem details response",
-            { cause: parseError },
+            {
+              cause: parseError,
+            },
           );
         });
     } else if (isProblemDetails(error)) {
@@ -680,10 +668,13 @@ export function isHttpErrorLike<
 >(
   value: unknown,
 ): value is HttpError<Extensions> | (Error & { status: number }) {
-  return typeof value === "object" && value !== null &&
+  return (
+    typeof value === "object" &&
+    value !== null &&
     (value instanceof HttpError ||
       (value instanceof Error &&
-        typeof (value as HttpError).status === "number"));
+        typeof (value as HttpError).status === "number"))
+  );
 }
 
 /**
@@ -790,41 +781,50 @@ export function createHttpErrorClass<
 
       const finalOptions: HttpErrorOptions<Extensions> = {};
 
-      finalOptions.status = constructorTimeOptions.status !== undefined
-        ? constructorTimeOptions.status
-        : dfo?.status;
+      finalOptions.status =
+        constructorTimeOptions.status !== undefined
+          ? constructorTimeOptions.status
+          : dfo?.status;
 
-      finalOptions.message = constructorTimeOptions.message !== undefined
-        ? constructorTimeOptions.message
-        : dfo?.message;
+      finalOptions.message =
+        constructorTimeOptions.message !== undefined
+          ? constructorTimeOptions.message
+          : dfo?.message;
 
-      finalOptions.name = constructorTimeOptions.name !== undefined
-        ? constructorTimeOptions.name
-        : dfo?.name;
+      finalOptions.name =
+        constructorTimeOptions.name !== undefined
+          ? constructorTimeOptions.name
+          : dfo?.name;
 
-      finalOptions.expose = constructorTimeOptions.expose !== undefined
-        ? constructorTimeOptions.expose
-        : dfo?.expose;
+      finalOptions.expose =
+        constructorTimeOptions.expose !== undefined
+          ? constructorTimeOptions.expose
+          : dfo?.expose;
 
-      finalOptions.cause = constructorTimeOptions.cause !== undefined
-        ? constructorTimeOptions.cause
-        : dfo?.cause;
+      finalOptions.cause =
+        constructorTimeOptions.cause !== undefined
+          ? constructorTimeOptions.cause
+          : dfo?.cause;
 
-      finalOptions.type = constructorTimeOptions.type !== undefined
-        ? constructorTimeOptions.type
-        : dfo?.type;
+      finalOptions.type =
+        constructorTimeOptions.type !== undefined
+          ? constructorTimeOptions.type
+          : dfo?.type;
 
-      finalOptions.instance = constructorTimeOptions.instance !== undefined
-        ? constructorTimeOptions.instance
-        : dfo?.instance;
+      finalOptions.instance =
+        constructorTimeOptions.instance !== undefined
+          ? constructorTimeOptions.instance
+          : dfo?.instance;
 
-      finalOptions.headers = constructorTimeOptions.headers !== undefined
-        ? constructorTimeOptions.headers
-        : dfo?.headers;
+      finalOptions.headers =
+        constructorTimeOptions.headers !== undefined
+          ? constructorTimeOptions.headers
+          : dfo?.headers;
 
-      finalOptions.statusText = constructorTimeOptions.statusText !== undefined
-        ? constructorTimeOptions.statusText
-        : dfo?.statusText;
+      finalOptions.statusText =
+        constructorTimeOptions.statusText !== undefined
+          ? constructorTimeOptions.statusText
+          : dfo?.statusText;
 
       finalOptions.exposedMessage =
         constructorTimeOptions.exposedMessage !== undefined
@@ -832,8 +832,8 @@ export function createHttpErrorClass<
           : dfo?.exposedMessage;
 
       finalOptions.extensions = {
-        ...(dfo?.extensions),
-        ...(constructorTimeOptions.extensions),
+        ...dfo?.extensions,
+        ...constructorTimeOptions.extensions,
       } as Extensions;
 
       super(finalOptions);

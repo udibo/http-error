@@ -1,0 +1,74 @@
+{
+  "name": "@udibo/http-error",
+  "version": "0.11.1",
+  "description": "Utilities for creating and working with HTTP errors that produce RFC 9457 Problem Details responses.",
+  "keywords": [
+    "error",
+    "hono",
+    "http",
+    "problem-details",
+    "rfc9457"
+  ],
+  "homepage": "https://github.com/udibo/http-error#readme",
+  "bugs": {
+    "url": "https://github.com/udibo/http-error/issues"
+  },
+  "license": "MIT",
+  "author": "Udibo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/udibo/http-error.git"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/mod.d.ts",
+      "default": "./dist/mod.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "pnpm lint && pnpm fmt:check && tsc --noEmit",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint --type-aware --type-check",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "smoke": "node scripts/npm-smoke.ts",
+    "jsr:dry-run": "jsr publish --dry-run"
+  },
+  "devDependencies": {
+    "@sebbo2002/semantic-release-jsr": "3.2.1",
+    "@semantic-release/exec": "7.1.0",
+    "@semantic-release/git": "10.0.1",
+    "@semantic-release/github": "12.0.8",
+    "@semantic-release/npm": "13.1.5",
+    "@types/node": "^26.0.0",
+    "@vitest/coverage-v8": "^5.0.3",
+    "conventional-changelog-conventionalcommits": "9.3.1",
+    "hono": "^4.13.13",
+    "jsr": "0.14.3",
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "oxlint-tsgolint": "^7.0.2003",
+    "semantic-release": "25.0.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@12.10.1"
+}
