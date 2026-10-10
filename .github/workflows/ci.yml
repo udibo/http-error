@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: Test on Node ${{ matrix.node }} (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: 22 }
+          - { os: ubuntu-latest, node: 24, coverage: true }
+          - { os: ubuntu-latest, node: 26 }
+          - { os: windows-latest, node: 24 }
+          - { os: macos-latest, node: 24 }
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check lint, formatting, and types
+        run: pnpm check
+      - name: Run tests
+        if: ${{ !matrix.coverage }}
+        run: pnpm test
+      - name: Run tests with coverage
+        if: ${{ matrix.coverage }}
+        run: pnpm test:coverage
+      - name: Upload coverage
+        if: ${{ matrix.coverage }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
+        with:
+          files: coverage/lcov.info
+          fail_ci_if_error: ${{ github.event_name == 'push' }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  package:
+    name: Build and smoke-test the package on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24, 26]
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build the npm package
+        run: pnpm build
+      - name: Install the packed tarball and run it from Node
+        run: pnpm smoke
+      - name: Verify the package publishes to JSR (dry run)
+        if: matrix.node == 24
+        run: pnpm jsr:dry-run
+
+  release:
+    name: Release to npm and JSR
+    needs: [test, package]
+    if: >-
+      github.event_name == 'push'
+      && github.ref == 'refs/heads/main'
+      && vars.RELEASE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      # No `registry-url` on purpose: it makes setup-node write an .npmrc whose
+      # auth line is a placeholder, which @semantic-release/npm then reads
+      # instead of exchanging the OIDC token.
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # npm trusted publishing (OIDC) needs npm 11.5.1 or later.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build the npm package
+        run: pnpm build
+      # NPM_TOKEN exists only for the first publish, before the package has a
+      # trusted publisher; delete the secret afterwards (see PUBLISHING.md).
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm exec semantic-release
